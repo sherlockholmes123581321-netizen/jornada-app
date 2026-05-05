@@ -1087,9 +1087,11 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
   const sorted=[...pe].sort((a,b)=>b.date.localeCompare(a.date));
   const progressPct=st.totalDays>0?(st.currentDays/st.totalDays)*100:0;
   const cur=isCurrent(period);
-  // nomina state managed inline
+  const[nominaEditing,setNominaEditing]=useState(false);
+  const[nominaDraft,setNominaDraft]=useState('');
   const nominaInput=nominaValues[pk]||'';
   const setNominaInput=val=>saveNominaValue(pk,val);
+  React.useEffect(()=>{setNominaEditing(false);setNominaDraft(nominaValues[pk]||'');},[pk,JSON.stringify(nominaValues)]);
   const nomina=parseFloat(nominaInput)||0;
   const nominaDiff=nomina>0?nomina-st.net:null;
 
@@ -1278,32 +1280,30 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
 
     {/* Nomina comparison */}
     {(()=>{
-      const [editing,setEditing]=React.useState(false);
-      const [draft,setDraft]=React.useState(nominaInput);
       const saved=nomina>0;
-      const handleSave=()=>{setNominaInput(draft);setEditing(false);};
-      const handleEdit=()=>{setDraft(nominaInput);setEditing(true);};
-      const handleClear=()=>{setNominaInput('');setDraft('');setEditing(false);};
+      const handleSave=()=>{setNominaInput(nominaDraft);setNominaEditing(false);};
+      const handleEdit=()=>{setNominaDraft(nominaInput);setNominaEditing(true);};
+      const handleClear=()=>{setNominaInput('');setNominaDraft('');setNominaEditing(false);};
       return(
       <div className="glass rounded-2xl p-4 mb-4">
         <div className="flex justify-between items-center mb-3">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nómina recibida</div>
-          {saved&&!editing&&<button onClick={handleEdit} className="text-xs text-blue-400 font-semibold">Editar</button>}
+          {saved&&!nominaEditing&&<button onClick={handleEdit} className="text-xs text-blue-400 font-semibold">Editar</button>}
         </div>
-        {(!saved||editing)?(
+        {(!saved||nominaEditing)?(
           <div className="space-y-2">
             <div className="flex gap-2 items-center">
-              <input type="number" inputMode="decimal" placeholder="Importe recibido €" value={editing?draft:draft}
-                onChange={e=>setDraft(e.target.value)} autoFocus={editing}
+              <input type="number" inputMode="decimal" placeholder="Importe recibido €" value={nominaDraft}
+                onChange={e=>setNominaDraft(e.target.value)}
                 className="flex-1 bg-slate-800/60 border border-slate-700/50 rounded-xl px-3 py-2.5 text-white text-base focus:border-blue-500/70 focus:outline-none"/>
               <span className="text-slate-500 font-bold text-lg">€</span>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleSave} disabled={!draft}
-                className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95 ${draft?'bg-blue-600 text-white':'bg-slate-800 text-slate-600'}`}>
+              <button onClick={handleSave} disabled={!nominaDraft}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95 ${nominaDraft?'bg-blue-600 text-white':'bg-slate-800 text-slate-600'}`}>
                 Guardar
               </button>
-              {editing&&<button onClick={handleClear} className="glass rounded-xl px-4 py-2.5 text-xs font-semibold text-red-400">Borrar</button>}
+              {nominaEditing&&<button onClick={handleClear} className="glass rounded-xl px-4 py-2.5 text-xs font-semibold text-red-400">Borrar</button>}
             </div>
           </div>
         ):(
