@@ -1089,9 +1089,13 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
   const cur=isCurrent(period);
   const[nominaEditing,setNominaEditing]=useState(false);
   const[nominaDraft,setNominaDraft]=useState('');
-  const nominaInput=nominaValues[pk]||'';
+  const nominaInput=(()=>{try{const nv=JSON.parse(localStorage.getItem('jornada-nomina-values')||'{}');return nv[pk]||'';}catch(e){return nominaValues[pk]||'';}})();
   const setNominaInput=val=>saveNominaValue(pk,val);
-  React.useEffect(()=>{setNominaEditing(false);setNominaDraft(nominaValues[pk]||'');},[pk,JSON.stringify(nominaValues)]);
+  React.useEffect(()=>{
+    setNominaEditing(false);
+    try{const nv=JSON.parse(localStorage.getItem('jornada-nomina-values')||'{}');setNominaDraft(nv[pk]||'');}
+    catch(e){setNominaDraft(nominaValues[pk]||'');}
+  },[pk]);
   const nomina=parseFloat(nominaInput)||0;
   const nominaDiff=nomina>0?nomina-st.net:null;
 
