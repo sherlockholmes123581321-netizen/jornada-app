@@ -13,7 +13,9 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
 *{-webkit-tap-highlight-color:transparent;box-sizing:border-box;}
-body{margin:0;background:#0a0f1e;overscroll-behavior:none;}
+html{height:100%;}
+body{margin:0;background:#0a0f1e;overscroll-behavior:none;position:fixed;width:100%;height:100%;height:-webkit-fill-available;overflow:hidden;}
+#root{height:100%;overflow:hidden;display:flex;flex-direction:column;}
 input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:0.4;}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 .glass{background:rgba(255,255,255,0.04);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08);}
@@ -1611,8 +1613,8 @@ function App(){
 
   const showNav=!(view==='mes'&&(subview==='nueva'||subview==='bulk'));
 
-  return(<div className="bg-[#0a0f1e] min-h-screen text-white flex flex-col" style={{fontFamily:"-apple-system,'Segoe UI',sans-serif"}}>
-    <div className="flex-1 overflow-auto max-w-lg mx-auto w-full" style={{paddingBottom:showNav?80:16}}>
+  return(<div className="bg-[#0a0f1e] text-white flex flex-col" style={{fontFamily:"-apple-system,'Segoe UI',sans-serif",height:'100%',overflow:'hidden'}}>
+    <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full" style={{paddingBottom:showNav?80:16,WebkitOverflowScrolling:'touch'}}>
       {view==='mes'&&subview==='mes'&&<ResumenMes entries={entries} settings={settings} onEdit={handleEdit} onDelete={handleDelete} onNew={handleNew} onBulk={handleBulk} viewPeriod={viewPeriod} setViewPeriod={setViewPeriod} daysSince={daysSince} onDuplicate={handleDuplicate}/>}
       {view==='mes'&&subview==='nueva'&&<EntryForm onSave={handleSave} onCancel={handleCancel} settings={settings} editing={editing} lastDate={lastDate}/>}
       {view==='mes'&&subview==='bulk'&&<BulkForm onSave={handleBulkSave} onCancel={handleCancel} settings={settings} lastDate={lastDate}/>}
@@ -1620,7 +1622,7 @@ function App(){
       {view==='ajustes'&&<Ajustes settings={settings} onSave={saveSettings} onGetEntries={getEntries} onRestoreEntries={restoreEntries}/>}
     </div>
 
-    {showNav&&<div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto flex px-1" style={{paddingBottom:'env(safe-area-inset-bottom)',background:'rgba(10,15,30,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+    {showNav&&<div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto flex px-1" style={{paddingBottom:'env(safe-area-inset-bottom)',background:'rgba(10,15,30,0.98)',backdropFilter:'blur(20px)',borderTop:'1px solid rgba(255,255,255,0.06)',zIndex:9999}}>
       {tabs.map(t=><button key={t.id} onClick={()=>{setView(t.id);if(t.id!=='mes')setSubview('mes');else setSubview('mes');}}
         className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors ${view===t.id?'text-blue-400':'text-slate-600'}`}>
         {t.icon}
