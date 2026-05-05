@@ -1097,11 +1097,23 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
   const daysLeft=st.totalDays-st.currentDays;
   const projected=st.net+(daysLeft*settings.dailyRate);
 
-  // Weekly summary
+  // Weekly summary - enumerate all days in period and group by week
   const getWeekStart=ds=>{const[y,m,d]=ds.split('-').map(Number);const dt=new Date(y,m-1,d);const dow=dt.getDay();const monday=new Date(dt);monday.setDate(dt.getDate()-(dow===0?6:dow-1));return localDs(monday);};
+  let periodStart2=new Date(period.sy,period.sm,29);
+  if(settings.startDate){const sd=new Date(settings.startDate+'T12:00:00');if(sd>periodStart2)periodStart2=sd;}
+  const periodFullEnd2=new Date(period.ey,period.em,28,23,59,59);
+  const today2=new Date();today2.setHours(23,59,59,0);
+  const periodEnd2=isCurrent(period)&&today2<periodFullEnd2?today2:periodFullEnd2;
+  const entryMap2={};pe.forEach(e=>entryMap2[e.date]=e);
   const weekGroups={};
-  pe.forEach(e=>{const ws=getWeekStart(e.date);if(!weekGroups[ws])weekGroups[ws]=[];weekGroups[ws].push(e);});
-  // Also count auto days per week
+  const wd=new Date(periodStart2);
+  while(wd<=periodEnd2){
+    const ds=localDs(wd);
+    const ws=getWeekStart(ds);
+    if(!weekGroups[ws])weekGroups[ws]=[];
+    weekGroups[ws].push({date:ds,entry:entryMap2[ds]||null});
+    wd.setDate(wd.getDate()+1);
+  }
   const weeks=Object.keys(weekGroups).sort();
 
   const cats=[
@@ -1319,16 +1331,41 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
     {weeks.length>0&&<><SecTitle>Resumen semanal</SecTitle>
     <div className="space-y-2 mb-4">
       {weeks.map(ws=>{
-        const wEntries=weekGroups[ws]||[];
-        const wSt=calcPeriodStats(wEntries,settings,{sy:parseInt(ws.split('-')[0]),sm:parseInt(ws.split('-')[1])-1,ey:parseInt(ws.split('-')[0]),em:parseInt(ws.split('-')[1])});
-        const wEnd=addDays(ws,6);
-        const wHours=wEntries.reduce((a,e)=>a+(e.hoursWorked||0),0);
-        const wNet=wEntries.reduce((a,e)=>{const wknd=isWeekend(e.date),h=e.hoursWorked||0,dt=e.dayType||'normal';if(dt==='baja_sin')return a;if(dt==='festivo'||dt==='baja_con')return a+settings.dailyRate;if(wknd)return a+h*settings.overtimeRate;return a+settings.dailyRate+Math.max(0,h-settings.workdayHours)*settings.overtimeRate;},0);
+        const wDays=weekGroups[ws]||[];
+        // Last day of this week is min(ws+6, period end)
+        const wEndRaw=addDays(ws,6);
+        const periodEndStr=`${period.ey}-${String(period.em+1).padStart(2,'0')}-28`;
+        const todayStr2=localDs(new Date());
+        const wEndCapped=wEndRaw>periodEndStr?periodEndStr:wEndRaw;
+        const wEnd=isCurrent(period)&&wEndCapped>todayStr2?todayStr2:wEndCapped;
+        const wStartDisplay=wDays[0]?.date||ws;
+        // Calculate week total: registered days use calcDayPay, unregistered days get dailyRate
+        let wNet=0,wHours=0,wRegistered=0;
+        wDays.forEach(({date,entry})=>{
+          const wknd=isWeekend(date);
+          // Weekends always count automatically (if day has passed or period is complete)
+          if(!entry && wknd){
+            wNet+=settings.dailyRate;
+          } else if(entry){
+            const h=entry.hoursWorked||0;
+            const dt=entry.dayType||'normal';
+            if(dt==='baja_ec'){const bs=entry.bajaStartDate||date;const dn=Math.floor((new Date(date+'T12:00:00')-new Date(bs+'T12:00:00'))/86400000)+1;wNet+=settings.dailyRate*(dn<=3?0:dn<=20?0.6:0.75);}
+            else if(dt==='accidente_lab'){wNet+=settings.dailyRate*((settings.accidentePct||100)/100);}
+            else if(dt==='festivo'){wNet+=settings.dailyRate;}
+            else if(wknd){wNet+=h*settings.overtimeRate;}
+            else{wNet+=settings.dailyRate+Math.max(0,h-settings.workdayHours)*settings.overtimeRate;}
+            const ex=calcDayExtras(entry,settings);
+            wNet+=ex.total;
+            wHours+=h;
+            wRegistered++;
+          }
+          // Unregistered weekdays: don't count (user hasn't logged them)
+        });
         return(<div key={ws} className="glass rounded-xl p-3">
           <div className="flex justify-between items-center">
             <div>
-              <div className="text-xs font-bold text-slate-300">{fmtDate(ws)} – {fmtDate(wEnd)}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">{wEntries.length} jornadas · {wHours}h trabajadas</div>
+              <div className="text-xs font-bold text-slate-300">{fmtDate(wStartDisplay)} – {fmtDate(wEnd)}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{wRegistered} jornadas · {wHours}h trabajadas · {wDays.length} días totales</div>
             </div>
             <div className="text-sm font-black text-blue-300">{fmt(wNet)}</div>
           </div>
