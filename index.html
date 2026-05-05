@@ -59,6 +59,7 @@ function getDow(ds){const[y,m,d]=ds.split('-').map(Number);return new Date(y,m-1
 function isWeekend(ds){const dow=getDow(ds);return dow===0||dow===6;}
 function fmtDate(ds){const[y,m,d]=ds.split('-').map(Number);return`${DAYS[new Date(y,m-1,d).getDay()]} ${d} ${MS[m-1]}`;}
 const fmt=n=>(n===null||n===undefined||isNaN(n))?'–':n.toFixed(2).replace('.',',')+' €';
+const stripAccents=s=>{let o=String(s||'');[['a','áàäâ'],['e','éèëê'],['i','íìïî'],['o','óòöô'],['u','úùüû'],['n','ñ'],['A','ÁÀÄÂ'],['E','ÉÈËÊ'],['I','ÍÌÏÎ'],['O','ÓÒÖÔ'],['U','ÚÙÜÛ'],['N','Ñ']].forEach(([k,vs])=>[...vs].forEach(v=>o=o.split(v).join(k)));return o;}
 const fmtInt=n=>n===0?'–':n.toFixed(0)+' €';
 
 function calcDayExtras(e,s){
@@ -130,14 +131,18 @@ function daysSinceLastEntry(entries){
 // ── CSV EXPORT ────────────────────────────────────────────────
 function exportCSV(entries,settings,period){
   const pe=entries.filter(e=>periodKey(getPayPeriod(e.date))===periodKey(period));
-  const rows=[['Fecha','Dia','Tipo','Categoria','Horas','H.Extra','Km','Noche Espana','Noche Extranjero','Hotel','Comidas','Gratificacion','Lugar','Notas','Total dia']];
+  const DAYS_CSV=['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+  const TYPES_CSV={normal:'Laboral',festivo:'Festivo',baja_ec:'Baja EC',accidente_lab:'Acc.Laboral'};
+  const rows=[['Fecha','Dia','Tipo','Categoria','Horas','H.Extra','Km','Noche Espana','Noche Extranjero','Hotel','Comidas','Gratificacion','Concepto','Lugar','Notas','Total dia']];
   [...pe].sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
     const wknd=isWeekend(e.date);
     const h=e.hoursWorked||0,otH=!wknd?Math.max(0,h-settings.workdayHours):0;
     const dayPay=wknd?h*settings.overtimeRate:settings.dailyRate+otH*settings.overtimeRate;
     const ex=calcDayExtras(e,settings);
-    const cat=CATEGORIES.find(c=>c.id===e.category);
-    rows.push([e.date,DAYSFULL[getDow(e.date)],e.dayType||'normal',cat?cat.label:'',h,otH,e.km||0,e.spainNight?'Si':'No',e.abroadNight?'Si':'No',e.hotel||0,e.meals||0,e.gratification||0,e.location||'',e.notes||'',(dayPay+ex.total).toFixed(2)]);
+    const cat=e.customCategory?{label:e.customCategory}:CATEGORIES.find(c=>c.id===e.category);
+    const catLabel=stripAccents(cat?cat.label:'');
+    const tipo=TYPES_CSV[e.dayType||'normal']||stripAccents(e.dayType||'normal');
+    rows.push([e.date,DAYS_CSV[getDow(e.date)],tipo,catLabel,h,otH,e.km||0,e.spainNight?'Si':'No',e.abroadNight?'Si':'No',e.hotel||0,e.meals||0,e.gratification||0,stripAccents(e.gratificationNote||''),stripAccents(e.location||''),stripAccents(e.notes||''),(dayPay+ex.total).toFixed(2)]);
   });
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob=new Blob([''+csv],{type:'text/csv;charset=utf-8;'});
@@ -190,7 +195,7 @@ function exportPDF(entries, settings, period) {
   const rows = pe.map(e => {
     const ex = calcDayExtras(e, settings);
     const total = getDayTotal(e);
-    const cat = CATEGORIES.find(c=>c.id===e.category);
+    const cat = e.customCategory ? {icon:'✏️', label:e.customCategory} : CATEGORIES.find(c=>c.id===e.category);
     return `
       <tr>
         <td>${fmtD(e.date)}</td>
@@ -503,9 +508,9 @@ function exportParte(entries, settings, period, workerName) {
 
 <div class="footer">
   <div class="legend">
-    <span><span class="dot" style="background:#1d4ed8"></span> Horas trabajadas</span>
-    <span><span class="dot" style="background:#d97706"></span> Horas extra</span>
-    <span><span class="dot" style="background:#f8fafc;border:1px solid #e2e8f0"></span> Fin de semana / Sin registro</span>
+    <span><span class="dot" style="background:#1d4ed8"></span> <strong>Azul</strong> = Horas trabajadas</span>
+    <span><span class="dot" style="background:#d97706"></span> <strong>Naranja</strong> = Horas extra</span>
+    <span><span class="dot" style="background:#e2e8f0"></span> <strong>Gris</strong> = Fin de semana / Sin registro</span>
   </div>
   <div class="sign-row">
     <div class="sign-box"><div class="sign-label">Firma del trabajador</div></div>
@@ -972,7 +977,7 @@ function EntryCard({entry,settings,onEdit,onDelete,onDuplicate}){
 }
 
 // ── RESUMEN MES ───────────────────────────────────────────────
-function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,setViewPeriod,daysSince,onDuplicate}){
+function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,setViewPeriod,daysSince,onDuplicate,nominaValues,saveNominaValue}){
   const cp=currentPeriod();
   const period=viewPeriod||cp;
   const pk=periodKey(period);
@@ -981,8 +986,9 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
   const sorted=[...pe].sort((a,b)=>b.date.localeCompare(a.date));
   const progressPct=st.totalDays>0?(st.currentDays/st.totalDays)*100:0;
   const cur=isCurrent(period);
-  const[nominaInput,setNominaInput]=useState('');
   const[showNomina,setShowNomina]=useState(false);
+  const nominaInput=nominaValues[pk]||'';
+  const setNominaInput=val=>saveNominaValue(pk,val);
   const nomina=parseFloat(nominaInput)||0;
   const nominaDiff=nomina>0?nomina-st.net:null;
 
@@ -1449,7 +1455,8 @@ function Ajustes({settings,onSave,onGetEntries,onRestoreEntries}){
 
   const handleBackup=()=>{
     const pn=JSON.parse(localStorage.getItem('jornada-period-notes')||'{}');
-    const data={version:1,exportDate:new Date().toISOString(),settings,entries:onGetEntries(),periodNotes:pn};
+    const nv=JSON.parse(localStorage.getItem('jornada-nomina-values')||'{}');
+    const data={version:1,exportDate:new Date().toISOString(),settings,entries:onGetEntries(),periodNotes:pn,nominaValues:nv};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download=`jornada-backup-${new Date().toISOString().split('T')[0]}.json`;a.click();
@@ -1467,6 +1474,7 @@ function Ajustes({settings,onSave,onGetEntries,onRestoreEntries}){
           onRestoreEntries(data.entries);
           if(data.settings)onSave(data.settings);
           if(data.periodNotes){try{localStorage.setItem('jornada-period-notes',JSON.stringify(data.periodNotes));}catch(e){}}
+          if(data.nominaValues){try{localStorage.setItem('jornada-nomina-values',JSON.stringify(data.nominaValues));}catch(e){}}
           setRestoreMsg(`✓ Restauradas ${data.entries.length} jornadas`);
           setTimeout(()=>setRestoreMsg(''),3000);
         }
@@ -1570,12 +1578,14 @@ function App(){
   const[editing,setEditing]=useState(null);
   const[viewPeriod,setViewPeriod]=useState(null);
   const[periodNotes,setPeriodNotes]=useState({});
+  const[nominaValues,setNominaValues]=useState({});
   const[subview,setSubview]=useState('mes'); // mes|nueva|bulk
 
-  useEffect(()=>{try{const se=localStorage.getItem('jornada-entries'),ss=localStorage.getItem('jornada-settings'),sn=localStorage.getItem('jornada-period-notes');if(se)setEntries(JSON.parse(se));if(ss)setSett(JSON.parse(ss));if(sn)setPeriodNotes(JSON.parse(sn));}catch(e){}setLoading(false);},[]);
+  useEffect(()=>{try{const se=localStorage.getItem('jornada-entries'),ss=localStorage.getItem('jornada-settings'),sn=localStorage.getItem('jornada-period-notes');if(se)setEntries(JSON.parse(se));if(ss)setSett(JSON.parse(ss));if(sn)setPeriodNotes(JSON.parse(sn));if(snv)setNominaValues(JSON.parse(snv));}catch(e){}setLoading(false);},[]);
 
   const saveEntries=useCallback(ne=>{setEntries(ne);try{localStorage.setItem('jornada-entries',JSON.stringify(ne));}catch(e){}});
   const savePeriodNotes=useCallback((pk,note)=>{const updated={...periodNotes,[pk]:note};setPeriodNotes(updated);try{localStorage.setItem('jornada-period-notes',JSON.stringify(updated));}catch(e){}});
+  const saveNominaValue=useCallback((pk,val)=>{const updated={...nominaValues,[pk]:val};setNominaValues(updated);try{localStorage.setItem('jornada-nomina-values',JSON.stringify(updated));}catch(e){}});
   const getEntries=useCallback(()=>entries,[entries]);
   const restoreEntries=useCallback(ne=>{saveEntries(ne);},[saveEntries]);
   const saveSettings=useCallback(ns=>{setSett(ns);try{localStorage.setItem('jornada-settings',JSON.stringify(ns));}catch(e){}});
@@ -1615,7 +1625,7 @@ function App(){
 
   return(<div className="bg-[#0a0f1e] text-white flex flex-col" style={{fontFamily:"-apple-system,'Segoe UI',sans-serif",height:'100%',overflow:'hidden'}}>
     <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full" style={{paddingBottom:showNav?80:16,WebkitOverflowScrolling:'touch'}}>
-      {view==='mes'&&subview==='mes'&&<ResumenMes entries={entries} settings={settings} onEdit={handleEdit} onDelete={handleDelete} onNew={handleNew} onBulk={handleBulk} viewPeriod={viewPeriod} setViewPeriod={setViewPeriod} daysSince={daysSince} onDuplicate={handleDuplicate}/>}
+      {view==='mes'&&subview==='mes'&&<ResumenMes entries={entries} settings={settings} onEdit={handleEdit} onDelete={handleDelete} onNew={handleNew} onBulk={handleBulk} viewPeriod={viewPeriod} setViewPeriod={setViewPeriod} daysSince={daysSince} onDuplicate={handleDuplicate} nominaValues={nominaValues} saveNominaValue={saveNominaValue}/>}
       {view==='mes'&&subview==='nueva'&&<EntryForm onSave={handleSave} onCancel={handleCancel} settings={settings} editing={editing} lastDate={lastDate}/>}
       {view==='mes'&&subview==='bulk'&&<BulkForm onSave={handleBulkSave} onCancel={handleCancel} settings={settings} lastDate={lastDate}/>}
       {view==='historial'&&<Historial entries={entries} settings={settings} onEdit={handleEdit} onDelete={handleDelete} periodNotes={periodNotes} savePeriodNote={savePeriodNotes} onDuplicate={handleDuplicate}/>}
