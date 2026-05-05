@@ -1269,7 +1269,7 @@ function FilterPanel({search,setSearch,filterCat,setFilterCat,filterType,setFilt
 }
 
 function Historial({entries,settings,onEdit,onDelete,periodNotes,savePeriodNote,onDuplicate}){
-  const[open,setOpen]=useState(periodKey(prevPeriod(currentPeriod())));
+  const[open,setOpen]=useState(null);
   const[search,setSearch]=useState('');
   const[filterCat,setFilterCat]=useState('');
   const[filterType,setFilterType]=useState('');
