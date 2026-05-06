@@ -337,6 +337,25 @@ function exportCSV(entries,settings,period){
   URL.revokeObjectURL(url);
 }
 
+// ── DOWNLOAD HELPER ─────────────────────────────────────
+
+function downloadHtml(html, filename) {
+  try {
+    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  } catch(e) {
+    const w = window.open('','_blank');
+    if(w){w.document.write(html);w.document.close();}
+  }
+}
+
 // ── PDF EXPORT ────────────────────────────────────────────────
 function exportPDF(entries, settings, period, nominaValue) {
   // Always read fresh from localStorage as fallback
@@ -406,6 +425,13 @@ function exportPDF(entries, settings, period, nominaValue) {
 
   const nomina = parseFloat(nominaValue) || 0;
   const nominaDiff = nomina > 0 ? nomina - st.net : null;
+  const nominaHtml = nomina > 0 ? (
+    '<div style="margin-top:10px">' +
+    '<div class="label">Nómina recibida</div>' +
+    '<div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px">' + fmtN(nomina) + '</div>' +
+    (nominaDiff !== null ? '<div style="font-size:12px;font-weight:700;margin-top:2px;color:' + (nominaDiff>=0?'#16a34a':'#dc2626') + '">' + (nominaDiff>=0?'▲':'▼') + ' ' + fmtN(Math.abs(nominaDiff)) + ' vs estimado</div>' : '') +
+    '</div>'
+  ) : '';
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -520,7 +546,7 @@ ${(st.otPay > 0 || st.weekendPay > 0 || st.extrasTotal > 0) ? `
   <tbody>
     ${rows}
     <tr class="total-row">
-      <td colspan="7"><strong>TOTAL DEL PERÍODO</strong></td>
+      <td colspan="8"><strong>TOTAL DEL PERÍODO</strong></td>
       <td class="money" style="white-space:nowrap">${fmtN(st.net)}</td>
     </tr>
   </tbody>
@@ -533,12 +559,7 @@ ${(st.otPay > 0 || st.weekendPay > 0 || st.extrasTotal > 0) ? `
 </body>
 </html>`;
 
-  const win = window.open('', '_blank');
-  if (win) {
-    win.document.write(html);
-    win.document.close();
-    setTimeout(() => win.print(), 800);
-  }
+  downloadHtml(html, 'jornada-' + periodKey(period) + '.html');
 }
 
 // ── XLSX EXPORT ───────────────────────────────────────────────
@@ -791,6 +812,7 @@ function exportParte(entries, settings, period, workerName) {
     <div class="worker-block">
       <div class="label">Trabajador</div>
       <div class="name">${workerName || '___________________________'}</div>
+      ${nominaHtml}
     </div>
   </div>
   <div class="summary-bar">
@@ -826,8 +848,7 @@ function exportParte(entries, settings, period, workerName) {
 </body>
 </html>`;
 
-  const win = window.open('', '_blank');
-  if(win) { win.document.write(html); win.document.close(); setTimeout(()=>win.print(), 800); }
+  downloadHtml(html, 'parte-' + periodKey(period) + '.html');
 }
 
 // ── UI PRIMITIVES ─────────────────────────────────────────────
