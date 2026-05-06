@@ -86,7 +86,11 @@ function calcPeriodStats(entries,s,period){
     const ds=localDs(d);
     const dow=d.getDay(),wknd=dow===0||dow===6;
     const entry=entryMap[ds];
-    if(!entry){base+=s.dailyRate;autoDays++;}
+    if(!entry){
+      // Don't count today automatically in current period - only count if registered
+      const isToday=cur&&ds===localDs(new Date());
+      if(!isToday){base+=s.dailyRate;autoDays++;}
+    }
     else{
       const h=entry.hoursWorked||0;
       const dt=entry.dayType||'normal';
@@ -1536,7 +1540,8 @@ function Historial({entries,settings,onEdit,onDelete,periodNotes,savePeriodNote,
     {/* Detailed annual stats */}
     {yDays>0&&!hasFilter&&(()=>{
       const allYear=entries.filter(e=>e.date.startsWith(String(currentYear)));
-      const avgHours=allYear.length>0?(allYear.reduce((a,e)=>a+(e.hoursWorked||0),0)/allYear.length).toFixed(1):0;
+      const workedDays=allYear.filter(e=>(e.hoursWorked||0)>0&&!['festivo','baja_ec','accidente_lab'].includes(e.dayType||''));
+      const avgHours=workedDays.length>0?(workedDays.reduce((a,e)=>a+(e.hoursWorked||0),0)/workedDays.length).toFixed(1):0;
       const daysWithOT=allYear.filter(e=>!isWeekend(e.date)&&(e.hoursWorked||0)>settings.workdayHours).length;
       const longestStreak=(()=>{let max=0,cur=0,prev=null;[...allYear].sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{if(prev){const diff=Math.floor((new Date(e.date+'T12:00:00')-new Date(prev+'T12:00:00'))/86400000);cur=diff===1?cur+1:1;}else cur=1;if(cur>max)max=cur;prev=e.date;});return max;})();
       const totalKm=allYear.reduce((a,e)=>a+(e.km||0),0);
