@@ -224,19 +224,79 @@ const CATEGORIES = [
   {id:'otro', label:'Otro', icon:'📌', color:'slate'},
 ];
 
-const DEFAULT_SETTINGS={dailyRate:56.70,overtimeRate:16.00,kmRate:0.27,spainNightRate:30.00,abroadNightRate:40.00,irpfPercent:0,workdayHours:8,startDate:'2026-04-06',accidentePct:100,workerName:'',reminderHour:17};
+const DEFAULT_SETTINGS={dailyRate:56.70,overtimeRate:16.00,kmRate:0.27,spainNightRate:30.00,abroadNightRate:40.00,irpfPercent:0,workdayHours:8,startDate:'2026-04-06',accidentePct:100,workerName:'',reminderHour:17,periodStartDay:29};
 
 // ── UTILS ─────────────────────────────────────────────────────
 const todayStr=()=>{const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;};
 const localDs=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-function getPayPeriod(s){const[y,m,d]=s.split('-').map(Number),mi=m-1;if(d>=29)return{sy:y,sm:mi,ey:mi===11?y+1:y,em:mi===11?0:mi+1};return{sy:mi===0?y-1:y,sm:mi===0?11:mi-1,ey:y,em:mi};}
-const periodKey=p=>`${p.sy}-${String(p.sm).padStart(2,'0')}`;
-const periodLabel=p=>`29 ${MS[p.sm]} ${p.sy} – 28 ${MS[p.em]} ${p.ey}`;
-const periodShort=p=>`${MS[p.sm]} ${p.sy}`;
+// Module-level current start day, kept in sync with settings
+let _periodStartDay = 29;
+function loadPeriodStartDay(){try{const s=JSON.parse(localStorage.getItem('jornada-settings')||'{}');_periodStartDay=parseInt(s.periodStartDay)||29;}catch(e){_periodStartDay=29;}}
+loadPeriodStartDay();
+
+// One-time migration: convert old periodKey format (start-based, 0-indexed) to new (end-based, 1-indexed)
+// Only relevant for users with prior D=29 data. Schema flag prevents re-running.
+function migratePeriodKeys(){
+  try{
+    if(localStorage.getItem('jornada-schema-version')==='2')return;
+    const shift=oldKey=>{
+      const parts=oldKey.split('-');
+      if(parts.length!==2)return oldKey;
+      let yr=parseInt(parts[0]), mo=parseInt(parts[1]);
+      if(isNaN(yr)||isNaN(mo))return oldKey;
+      // Old was sm 0-indexed; new is em+1 = sm+2 (since em=sm+1 for D=29)
+      mo+=2;
+      if(mo>12){mo-=12; yr+=1;}
+      return `${yr}-${String(mo).padStart(2,'0')}`;
+    };
+    for(const storeKey of ['jornada-nomina-values','jornada-period-notes']){
+      const raw=localStorage.getItem(storeKey);
+      if(!raw)continue;
+      const obj=JSON.parse(raw);
+      const migrated={};
+      for(const[k,v] of Object.entries(obj)){migrated[shift(k)]=v;}
+      localStorage.setItem(storeKey,JSON.stringify(migrated));
+    }
+    localStorage.setItem('jornada-schema-version','2');
+  }catch(e){console.warn('Migration error:',e);}
+}
+migratePeriodKeys();
+
+const _monthDays=(y,m1)=>new Date(y,m1,0).getDate(); // m1 is 1-indexed
+const _periodActualStartDay=p=>(p.sm===p.em&&p.sy===p.ey)?1:_periodStartDay;
+const _periodActualEndDay=p=>{const ld=_monthDays(p.ey,p.em+1);return _periodStartDay===1?ld:Math.min(_periodStartDay-1,ld);};
+
+function getPayPeriod(s){
+  const[y,m,d]=s.split('-').map(Number),mi=m-1,D=_periodStartDay;
+  if(D===1)return{sy:y,sm:mi,ey:y,em:mi};
+  if(d>=D){
+    const eM=mi===11?0:mi+1, eY=mi===11?y+1:y;
+    return{sy:y,sm:mi,ey:eY,em:eM};
+  }
+  // d < D: period started last month at D, or this month at 1 if last month doesn't have D
+  const pM=mi===0?11:mi-1, pY=mi===0?y-1:y;
+  if(_monthDays(pY,pM+1)>=D)return{sy:pY,sm:pM,ey:y,em:mi};
+  return{sy:y,sm:mi,ey:y,em:mi};
+}
+const periodKey=p=>`${p.ey}-${String(p.em+1).padStart(2,'0')}`;
+const periodLabel=p=>{const sD=_periodActualStartDay(p),eD=_periodActualEndDay(p);return`${sD} ${MS[p.sm]} ${p.sy} – ${eD} ${MS[p.em]} ${p.ey}`;};
+const periodShort=p=>`${MS[p.em]} ${p.ey}`;
 const currentPeriod=()=>getPayPeriod(todayStr());
 const isCurrent=p=>periodKey(p)===periodKey(currentPeriod());
-function prevPeriod(p){const sm=p.sm===0?11:p.sm-1,sy=p.sm===0?p.sy-1:p.sy;return{sy,sm,ey:p.sy,em:p.sm};}
-function nextPeriod(p){return{sy:p.ey,sm:p.em,ey:p.em===11?p.ey+1:p.ey,em:p.em===11?0:p.em+1};}
+function prevPeriod(p){
+  const sD=_periodActualStartDay(p);
+  const startDate=new Date(p.sy,p.sm,sD);
+  startDate.setDate(startDate.getDate()-1); // day before this period's start = last day of prev period
+  const ds=`${startDate.getFullYear()}-${String(startDate.getMonth()+1).padStart(2,'0')}-${String(startDate.getDate()).padStart(2,'0')}`;
+  return getPayPeriod(ds);
+}
+function nextPeriod(p){
+  const eD=_periodActualEndDay(p);
+  const endDate=new Date(p.ey,p.em,eD);
+  endDate.setDate(endDate.getDate()+1); // day after this period's end = first day of next period
+  const ds=`${endDate.getFullYear()}-${String(endDate.getMonth()+1).padStart(2,'0')}-${String(endDate.getDate()).padStart(2,'0')}`;
+  return getPayPeriod(ds);
+}
 function getDow(ds){const[y,m,d]=ds.split('-').map(Number);return new Date(y,m-1,d).getDay();}
 function isWeekend(ds){const dow=getDow(ds);return dow===0||dow===6;}
 function fmtDate(ds){const[y,m,d]=ds.split('-').map(Number);return`${DAYS[new Date(y,m-1,d).getDay()]} ${d} ${MS[m-1]}`;}
@@ -251,9 +311,9 @@ function calcDayExtras(e,s){
 
 function calcPeriodStats(entries,s,period){
   const cur=isCurrent(period);
-  let start=new Date(period.sy,period.sm,29);
+  let start=new Date(period.sy,period.sm,_periodActualStartDay(period));
   if(s.startDate){const sd=new Date(s.startDate+'T12:00:00');if(sd>start)start=sd;}
-  const fullEnd=new Date(period.ey,period.em,28,23,59,59);
+  const fullEnd=new Date(period.ey,period.em,_periodActualEndDay(period),23,59,59);
   const today=new Date();today.setHours(23,59,59,0);
   const end=cur&&today<fullEnd?today:fullEnd;
   if(end<start)return{totalDays:0,currentDays:0,autoDays:0,regWeekdays:0,regWeekends:0,base:0,weekendPay:0,otPay:0,extrasTotal:0,net:0,gross:null,otHours:0,weekendHours:0,kmTotal:0,kmPay:0,snCount:0,snPay:0,anCount:0,anPay:0,hotelTotal:0,mealsTotal:0,gratTotal:0};
@@ -680,9 +740,9 @@ function exportParte(entries, settings, period, workerName) {
   pe.forEach(e => entryMap[e.date] = e);
 
   // Build all days in the period
-  let start = new Date(period.sy, period.sm, 29);
+  let start = new Date(period.sy, period.sm, _periodActualStartDay(period));
   if(settings.startDate) { const sd = new Date(settings.startDate+'T12:00:00'); if(sd>start) start=sd; }
-  const fullEnd = new Date(period.ey, period.em, 28, 23, 59, 59);
+  const fullEnd = new Date(period.ey, period.em, _periodActualEndDay(period), 23, 59, 59);
   const allDays = [];
   const d = new Date(start);
   while(d <= fullEnd) {
@@ -763,7 +823,7 @@ function exportParte(entries, settings, period, workerName) {
     return `<tr>${cells}</tr>`;
   }).join('');
 
-  const periodStr = `${String(start.getDate()).padStart(2,'0')}/${String(start.getMonth()+1).padStart(2,'0')}/${start.getFullYear()} – 28/${String(fullEnd.getMonth()+1).padStart(2,'0')}/${fullEnd.getFullYear()}`;
+  const periodStr = `${String(start.getDate()).padStart(2,'0')}/${String(start.getMonth()+1).padStart(2,'0')}/${start.getFullYear()} – ${String(fullEnd.getDate()).padStart(2,'0')}/${String(fullEnd.getMonth()+1).padStart(2,'0')}/${fullEnd.getFullYear()}`;
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -1343,9 +1403,9 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
 
   // Weekly summary - enumerate all days in period and group by week
   const getWeekStart=ds=>{const[y,m,d]=ds.split('-').map(Number);const dt=new Date(y,m-1,d);const dow=dt.getDay();const monday=new Date(dt);monday.setDate(dt.getDate()-(dow===0?6:dow-1));return localDs(monday);};
-  let periodStart2=new Date(period.sy,period.sm,29);
+  let periodStart2=new Date(period.sy,period.sm,_periodActualStartDay(period));
   if(settings.startDate){const sd=new Date(settings.startDate+'T12:00:00');if(sd>periodStart2)periodStart2=sd;}
-  const periodFullEnd2=new Date(period.ey,period.em,28,23,59,59);
+  const periodFullEnd2=new Date(period.ey,period.em,_periodActualEndDay(period),23,59,59);
   const today2=new Date();today2.setHours(23,59,59,0);
   const periodEnd2=isCurrent(period)&&today2<periodFullEnd2?today2:periodFullEnd2;
   const entryMap2={};pe.forEach(e=>entryMap2[e.date]=e);
@@ -1858,7 +1918,10 @@ function Ajustes({settings,onSave,onGetEntries,onRestoreEntries}){
   const[saved,setSaved]=useState(false);
   const[restoreMsg,setRestoreMsg]=useState('');
   const set=(k,v)=>setS(p=>({...p,[k]:v}));
-  const handleSave=()=>{onSave({dailyRate:parseFloat(s.dailyRate)||0,overtimeRate:parseFloat(s.overtimeRate)||0,kmRate:parseFloat(s.kmRate)||0,spainNightRate:parseFloat(s.spainNightRate)||0,abroadNightRate:parseFloat(s.abroadNightRate)||0,irpfPercent:parseFloat(s.irpfPercent)||0,workdayHours:parseFloat(s.workdayHours)||8,startDate:s.startDate||'',accidentePct:parseFloat(s.accidentePct)||100,workerName:s.workerName||'',reminderHour:parseFloat(s.reminderHour)||17});setSaved(true);setTimeout(()=>setSaved(false),2500);};
+  const handleSave=()=>{
+    const psd=parseInt(s.periodStartDay);
+    if(isNaN(psd)||psd<1||psd>31){return;}
+    onSave({dailyRate:parseFloat(s.dailyRate)||0,overtimeRate:parseFloat(s.overtimeRate)||0,kmRate:parseFloat(s.kmRate)||0,spainNightRate:parseFloat(s.spainNightRate)||0,abroadNightRate:parseFloat(s.abroadNightRate)||0,irpfPercent:parseFloat(s.irpfPercent)||0,workdayHours:parseFloat(s.workdayHours)||8,startDate:s.startDate||'',accidentePct:parseFloat(s.accidentePct)||100,workerName:s.workerName||'',reminderHour:parseFloat(s.reminderHour)||17,periodStartDay:psd});setSaved(true);setTimeout(()=>setSaved(false),2500);};
 
   const handleBackup=()=>{
     const pn=JSON.parse(localStorage.getItem('jornada-period-notes')||'{}');
@@ -1918,11 +1981,38 @@ function Ajustes({settings,onSave,onGetEntries,onRestoreEntries}){
       </div>
     </Card>
 
+    <SecTitle>Período de nómina</SecTitle>
+    <Card>
+      <label className="text-xs t2 block mb-1.5 font-medium">Día de inicio del período <span style={{color:'var(--t3)',fontWeight:400}}>(1–31)</span></label>
+      <input type="number" inputMode="numeric" min="1" max="31"
+        value={s.periodStartDay===''||s.periodStartDay===undefined||s.periodStartDay===null?'':s.periodStartDay}
+        onChange={e=>{
+          const raw=e.target.value;
+          if(raw===''){set('periodStartDay','');return;}
+          const num=parseInt(raw);
+          if(!isNaN(num))set('periodStartDay',Math.min(31,Math.max(1,num)));
+        }}
+        style={{width:'100%',paddingLeft:'18px'}}/>
+      <p className="text-xs mt-2" style={{color:(()=>{
+        const v=s.periodStartDay;
+        if(v===''||v===undefined||v===null||isNaN(parseInt(v)))return '#f87171';
+        return 'var(--t3)';
+      })()}}>
+        {(() => {
+          const v=s.periodStartDay;
+          if(v===''||v===undefined||v===null||isNaN(parseInt(v)))return '⚠ Sin valor. Introduce un día entre 1 y 31 antes de guardar.';
+          const d=parseInt(v);
+          if(d===1)return 'Período mensual estándar: del 1 al último día de cada mes.';
+          return `Período del ${d} de un mes al ${d-1} del siguiente. Si un mes no tiene día ${d} (p.ej. febrero no bisiesto con día 29 o 30), ese período empieza el día 1 de ese mes.`;
+        })()}
+      </p>
+    </Card>
+
     <SecTitle>Incorporación</SecTitle>
     <Card>
       <label className="text-xs t2 block mb-1.5 font-medium">Fecha de inicio del contrato</label>
       <input type="date" value={s.startDate||''} onChange={e=>set('startDate',e.target.value)} className="w-full bg-transparent t1 text-base focus:outline-none border-b border-white/8 pb-2"/>
-      <p className="text-xs t3 mt-2">El primer período empieza en esta fecha en vez del día 29.</p>
+      <p className="text-xs t3 mt-2">El primer período empieza en esta fecha en vez del día configurado.</p>
     </Card>
 
     <SecTitle>Jornada</SecTitle>
@@ -1954,8 +2044,10 @@ function Ajustes({settings,onSave,onGetEntries,onRestoreEntries}){
       <NumField label="Retención IRPF" sub="%" value={s.irpfPercent} onChange={v=>set('irpfPercent',v)} step="0.1" placeholder="0" hint="Lo ves en tu nómina. Déjalo en 0 para omitir el cálculo de bruto."/>
     </Card>
 
-    <button onClick={handleSave} className={`w-full mt-6 rounded-2xl py-4 font-bold text-lg transition-all active:scale-95 ${saved?'bg-green-600':'text-white'}`}
-      style={!saved?{background:'linear-gradient(135deg,#2563eb,#1d4ed8)',boxShadow:'0 4px 24px rgba(37,99,235,0.3)'}:{}}>
+    <button onClick={handleSave}
+      disabled={(()=>{const v=s.periodStartDay;return v===''||v===undefined||v===null||isNaN(parseInt(v));})()}
+      className={`w-full mt-6 rounded-2xl py-4 font-bold text-lg transition-all active:scale-95 ${saved?'bg-green-600':'text-white'}`}
+      style={(()=>{const v=s.periodStartDay;const invalid=v===''||v===undefined||v===null||isNaN(parseInt(v));if(invalid)return{background:'rgba(255,255,255,0.06)',color:'var(--t3)',cursor:'not-allowed'};return !saved?{background:'linear-gradient(135deg,#2563eb,#1d4ed8)',boxShadow:'0 4px 24px rgba(37,99,235,0.3)'}:{};})()}>
       {saved?'✓ Guardado':'Guardar ajustes'}
     </button>
 
@@ -1997,7 +2089,7 @@ function App(){
   const saveNominaValue=useCallback((pk,val)=>{const updated={...nominaValues,[pk]:val};setNominaValues(updated);try{localStorage.setItem('jornada-nomina-values',JSON.stringify(updated));}catch(e){}});
   const getEntries=useCallback(()=>entries,[entries]);
   const restoreEntries=useCallback(ne=>{saveEntries(ne);},[saveEntries]);
-  const saveSettings=useCallback(ns=>{setSett(ns);try{localStorage.setItem('jornada-settings',JSON.stringify(ns));}catch(e){}});
+  const saveSettings=useCallback(ns=>{const merged={...DEFAULT_SETTINGS,...ns};setSett(merged);try{localStorage.setItem('jornada-settings',JSON.stringify(merged));loadPeriodStartDay();}catch(e){}});
 
   const handleSave=entry=>{
     const ne=[...entries.filter(e=>e.id!==entry.id),entry].sort((a,b)=>a.date.localeCompare(b.date));
