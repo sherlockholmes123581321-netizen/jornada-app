@@ -338,7 +338,11 @@ function exportCSV(entries,settings,period){
 }
 
 // ── PDF EXPORT ────────────────────────────────────────────────
-function exportPDF(entries, settings, period) {
+function exportPDF(entries, settings, period, nominaValue) {
+  // Always read fresh from localStorage as fallback
+  if(!nominaValue) {
+    try { const nv=JSON.parse(localStorage.getItem('jornada-nomina-values')||'{}'); nominaValue=nv[periodKey(period)]||''; } catch(e){}
+  }
   const pe = [...entries.filter(e => periodKey(getPayPeriod(e.date)) === periodKey(period))]
     .sort((a, b) => a.date.localeCompare(b.date));
   const st = calcPeriodStats(pe, settings, period);
@@ -399,6 +403,9 @@ function exportPDF(entries, settings, period) {
         <td class="money" style="white-space:nowrap">${fmtN(total)}</td>
       </tr>`;
   }).join('');
+
+  const nomina = parseFloat(nominaValue) || 0;
+  const nominaDiff = nomina > 0 ? nomina - st.net : null;
 
   const html = `<!DOCTYPE html>
 <html lang="es">
