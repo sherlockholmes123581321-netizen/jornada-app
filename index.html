@@ -357,11 +357,12 @@ function downloadHtml(html, filename) {
 }
 
 // ── PDF EXPORT ────────────────────────────────────────────────
-function exportPDF(entries, settings, period, nominaValue) {
-  // Always read fresh from localStorage as fallback
-  if(!nominaValue) {
-    try { const nv=JSON.parse(localStorage.getItem('jornada-nomina-values')||'{}'); nominaValue=nv[periodKey(period)]||''; } catch(e){}
-  }
+function exportPDF(entries, settings, period) {
+  let nominaValue = '';
+  try {
+    const nv = JSON.parse(localStorage.getItem('jornada-nomina-values') || '{}');
+    nominaValue = nv[periodKey(period)] || '';
+  } catch(e) {}
   const pe = [...entries.filter(e => periodKey(getPayPeriod(e.date)) === periodKey(period))]
     .sort((a, b) => a.date.localeCompare(b.date));
   const st = calcPeriodStats(pe, settings, period);
@@ -425,11 +426,16 @@ function exportPDF(entries, settings, period, nominaValue) {
 
   const nomina = parseFloat(nominaValue) || 0;
   const nominaDiff = nomina > 0 ? nomina - st.net : null;
-  const nominaHtml = nomina > 0 ? (
-    '<div style="margin-top:10px">' +
-    '<div class="label">Nómina recibida</div>' +
-    '<div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px">' + fmtN(nomina) + '</div>' +
-    (nominaDiff !== null ? '<div style="font-size:12px;font-weight:700;margin-top:2px;color:' + (nominaDiff>=0?'#16a34a':'#dc2626') + '">' + (nominaDiff>=0?'▲':'▼') + ' ' + fmtN(Math.abs(nominaDiff)) + ' vs estimado</div>' : '') +
+  const nominaBar = nomina > 0 ? (
+    '<div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;margin-bottom:20px;">' +
+      '<div style="display:flex;flex-direction:column;gap:2px">' +
+        '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8">Nómina recibida</span>' +
+        '<span style="font-size:20px;font-weight:800;color:#0f172a">' + fmtN(nomina) + '</span>' +
+      '</div>' +
+      (nominaDiff !== null ? '<div style="text-align:right;display:flex;flex-direction:column;gap:2px">' +
+        '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8">Diferencia vs estimado</span>' +
+        '<span style="font-size:20px;font-weight:800;color:' + (nominaDiff>=0?'#16a34a':'#dc2626') + '">' + (nominaDiff>=0?'▲':'▼') + ' ' + fmtN(Math.abs(nominaDiff)) + '</span>' +
+      '</div>' : '') +
     '</div>'
   ) : '';
 
@@ -493,6 +499,8 @@ function exportPDF(entries, settings, period, nominaValue) {
     ${st.gross ? `<div style="font-size:12px;color:#94a3b8;">Bruto aprox. ${fmtN(st.gross)}</div>` : ''}
   </div>
 </div>
+
+${nominaBar}
 
 <div class="summary">
   <div class="stat accent">
@@ -559,7 +567,9 @@ ${(st.otPay > 0 || st.weekendPay > 0 || st.extrasTotal > 0) ? `
 </body>
 </html>`;
 
-  downloadHtml(html, 'jornada-' + periodKey(period) + '.html');
+  const win = window.open('', '_blank');
+  if(win){ win.document.write(html); win.document.close(); setTimeout(()=>win.print(), 600); }
+  else { downloadHtml(html, 'jornada-' + periodKey(period) + '.html'); }
 }
 
 // ── XLSX EXPORT ───────────────────────────────────────────────
@@ -763,43 +773,44 @@ function exportParte(entries, settings, period, workerName) {
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Inter',sans-serif;color:#0f172a;background:#fff;padding:20px;font-size:12px;}
-  .header{margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #0f172a;}
+  .header{margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid #0f172a;}
   .header-top{display:flex;justify-content:space-between;align-items:flex-start;}
   .header h1{font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;}
   .header .period{font-size:13px;color:#475569;margin-top:3px;font-weight:500;}
   .worker-block{text-align:right;}
   .worker-block .label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;}
   .worker-block .name{font-size:16px;font-weight:800;color:#0f172a;margin-top:2px;}
-  .summary-bar{display:flex;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid #e2e8f0;}
+  .summary-bar{display:flex;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;}
   .sum-item{display:flex;flex-direction:column;}
   .sum-item .sl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:#94a3b8;}
   .sum-item .sv{font-size:18px;font-weight:800;color:#0f172a;margin-top:1px;}
   table.calendar{width:100%;border-collapse:collapse;table-layout:fixed;}
   .dow-header th{padding:8px 4px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;border-bottom:2px solid #0f172a;}
   .dow-header th.weekend-th{color:#94a3b8;}
-  td{border:1px solid #e2e8f0;vertical-align:top;padding:5px 6px;height:90px;width:14.28%;}
+  td{border:1px solid #e2e8f0;vertical-align:top;padding:4px 6px;height:72px;width:14.28%;}
   td.empty-cell{background:#f8fafc;border-color:#f1f5f9;}
   td.weekend-cell{background:#f8fafc;}
   td.worked-cell{background:#fff;border-color:#cbd5e1;}
   td.empty-worked-cell{background:#fff;}
   .day-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
-  .day-num{font-size:14px;font-weight:800;color:#0f172a;}
+  .day-num{font-size:13px;font-weight:800;color:#0f172a;}
   .weekend-cell .day-num{color:#94a3b8;}
   .day-dow{font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;}
-  .day-hours{font-size:16px;font-weight:800;color:#1d4ed8;line-height:1;}
+  .day-hours{font-size:14px;font-weight:800;color:#1d4ed8;line-height:1;}
   .day-hours-empty{font-size:12px;color:#e2e8f0;}
   .ot{font-size:10px;font-weight:700;color:#d97706;}
   .day-type{font-size:8px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;}
   .baja .day-type{color:#d97706;}
   .day-notes{font-size:8.5px;color:#64748b;margin-top:4px;line-height:1.35;word-break:break-word;}
-  .footer{margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0;}
-  .sign-row{display:flex;justify-content:space-between;margin-top:32px;}
+  .footer{margin-top:12px;padding-top:10px;border-top:1px solid #e2e8f0;}
+  .sign-row{display:flex;justify-content:space-between;margin-top:20px;}
   .sign-box{width:45%;border-top:1.5px solid #0f172a;padding-top:6px;}
   .sign-box .sign-label{font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;}
   .legend{display:flex;gap:16px;font-size:10px;color:#64748b;margin-top:12px;}
   .legend span{display:flex;align-items:center;gap:4px;}
   .dot{width:8px;height:8px;border-radius:2px;display:inline-block;}
-  @media print{body{padding:10px;}@page{margin:0.8cm;size:A4 landscape;}}
+  .footer, .sign-row{page-break-inside:avoid;}
+  @media print{body{padding:8px;}@page{margin:0.7cm;size:A4 landscape;}}
 </style>
 </head>
 <body>
@@ -812,7 +823,6 @@ function exportParte(entries, settings, period, workerName) {
     <div class="worker-block">
       <div class="label">Trabajador</div>
       <div class="name">${workerName || '___________________________'}</div>
-      ${nominaHtml}
     </div>
   </div>
   <div class="summary-bar">
@@ -848,7 +858,9 @@ function exportParte(entries, settings, period, workerName) {
 </body>
 </html>`;
 
-  downloadHtml(html, 'parte-' + periodKey(period) + '.html');
+  const pw = window.open('', '_blank');
+  if(pw){ pw.document.write(html); pw.document.close(); setTimeout(()=>pw.print(), 600); }
+  else { downloadHtml(html, 'parte-' + periodKey(period) + '.html'); }
 }
 
 // ── UI PRIMITIVES ─────────────────────────────────────────────
