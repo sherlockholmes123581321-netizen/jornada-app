@@ -387,12 +387,12 @@ function exportPDF(entries, settings, period) {
         <td>${fmtD(e.date)}</td>
         <td>${DAYS[getDow(e.date)]}</td>
         <td>${getDayLabel(e)}</td>
-        <td>${cat ? cat.icon+' '+cat.label : '–'}</td>
+        <td class="cat-cell">${cat ? `<span style="font-size:12px">${cat.icon}</span> ${cat.label.length>14?cat.label.substring(0,13)+'…':cat.label}` : '–'}</td>
         <td>${e.hoursWorked || 0}h</td>
         <td>${(e.km || 0) > 0 ? e.km + ' km' : '–'}</td>
         <td>${e.location || '–'}</td>
         <td>${e.notes || '–'}</td>
-        <td class="money">${fmtN(total)}</td>
+        <td class="money" style="white-space:nowrap">${fmtN(total)}</td>
       </tr>`;
   }).join('');
 
@@ -427,8 +427,9 @@ function exportPDF(entries, settings, period) {
   thead th{padding:10px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;}
   tbody tr:nth-child(even){background:#f8fafc;}
   tbody tr:hover{background:#eff6ff;}
-  tbody td{padding:9px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
-  .money{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
+  tbody td{padding:9px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;font-size:12px;}
+  .money{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .cat-cell{max-width:90px;font-size:11px;}
   .footer{display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:2px solid #e2e8f0;color:#94a3b8;font-size:11px;}
   .total-row{background:#eff6ff!important;font-weight:700;}
   .total-row td{border-top:2px solid #bfdbfe;padding:11px 8px;}
@@ -494,14 +495,22 @@ ${(st.otPay > 0 || st.weekendPay > 0 || st.extrasTotal > 0) ? `
 <table>
   <thead>
     <tr>
-      <th>Fecha</th><th>Día</th><th>Tipo</th><th>Categoría</th><th>Horas</th><th>Km</th><th>Lugar</th><th>Notas</th><th>Total</th>
+      <th style="width:80px">Fecha</th>
+        <th style="width:40px">Día</th>
+        <th style="width:70px">Tipo</th>
+        <th style="width:85px">Categoría</th>
+        <th style="width:45px">Horas</th>
+        <th style="width:40px">Km</th>
+        <th style="width:auto">Lugar</th>
+        <th style="width:auto">Notas</th>
+        <th style="width:75px;text-align:right">Total</th>
     </tr>
   </thead>
   <tbody>
     ${rows}
     <tr class="total-row">
       <td colspan="7"><strong>TOTAL DEL PERÍODO</strong></td>
-      <td class="money">${fmtN(st.net)}</td>
+      <td class="money" style="white-space:nowrap">${fmtN(st.net)}</td>
     </tr>
   </tbody>
 </table>
@@ -721,7 +730,7 @@ function exportParte(entries, settings, period, workerName) {
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Inter',sans-serif;color:#0f172a;background:#fff;padding:24px;font-size:12px;}
+  body{font-family:'Inter',sans-serif;color:#0f172a;background:#fff;padding:20px;font-size:12px;}
   .header{margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #0f172a;}
   .header-top{display:flex;justify-content:space-between;align-items:flex-start;}
   .header h1{font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;}
@@ -736,21 +745,21 @@ function exportParte(entries, settings, period, workerName) {
   table.calendar{width:100%;border-collapse:collapse;table-layout:fixed;}
   .dow-header th{padding:8px 4px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;border-bottom:2px solid #0f172a;}
   .dow-header th.weekend-th{color:#94a3b8;}
-  td{border:1px solid #e2e8f0;vertical-align:top;padding:6px 5px;height:72px;width:14.28%;}
+  td{border:1px solid #e2e8f0;vertical-align:top;padding:5px 6px;height:90px;width:14.28%;}
   td.empty-cell{background:#f8fafc;border-color:#f1f5f9;}
   td.weekend-cell{background:#f8fafc;}
   td.worked-cell{background:#fff;border-color:#cbd5e1;}
   td.empty-worked-cell{background:#fff;}
   .day-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
-  .day-num{font-size:13px;font-weight:700;color:#0f172a;}
+  .day-num{font-size:14px;font-weight:800;color:#0f172a;}
   .weekend-cell .day-num{color:#94a3b8;}
   .day-dow{font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;}
-  .day-hours{font-size:14px;font-weight:800;color:#1d4ed8;line-height:1;}
+  .day-hours{font-size:16px;font-weight:800;color:#1d4ed8;line-height:1;}
   .day-hours-empty{font-size:12px;color:#e2e8f0;}
   .ot{font-size:10px;font-weight:700;color:#d97706;}
   .day-type{font-size:8px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;}
   .baja .day-type{color:#d97706;}
-  .day-notes{font-size:8px;color:#64748b;margin-top:3px;line-height:1.3;word-break:break-word;}
+  .day-notes{font-size:8.5px;color:#64748b;margin-top:4px;line-height:1.35;word-break:break-word;}
   .footer{margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0;}
   .sign-row{display:flex;justify-content:space-between;margin-top:32px;}
   .sign-box{width:45%;border-top:1.5px solid #0f172a;padding-top:6px;}
@@ -758,7 +767,7 @@ function exportParte(entries, settings, period, workerName) {
   .legend{display:flex;gap:16px;font-size:10px;color:#64748b;margin-top:12px;}
   .legend span{display:flex;align-items:center;gap:4px;}
   .dot{width:8px;height:8px;border-radius:2px;display:inline-block;}
-  @media print{body{padding:12px;}@page{margin:1cm;size:A4 landscape;}}
+  @media print{body{padding:10px;}@page{margin:0.8cm;size:A4 landscape;}}
 </style>
 </head>
 <body>
