@@ -1223,25 +1223,12 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
               className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400"/>
           </div>
         </div>
-        {/* Days remaining */}
-        {cur&&daysLeft>0&&<div className="flex justify-between items-center mb-2">
-          <div className="text-xs text-slate-500 font-medium">
-            <span className="text-slate-300 font-bold">{daysLeft} días</span> para fin de período
-          </div>
-          <div className="text-xs text-slate-600">{new Date(period.ey,period.em,28).toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}</div>
-        </div>}
+
         {cur&&daysLeft>0&&<>
-          <div className="flex justify-between items-center py-1.5 border-t border-slate-800/40">
-            <div className="text-xs text-slate-500">Días restantes en el período</div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-black text-white">{daysLeft}</span>
-              <span className="text-xs text-slate-500">· hasta el 28 {MS[period.em]}</span>
-            </div>
-          </div>
           <div className="flex justify-between items-center">
             <div>
               <div className="text-[10px] text-slate-600 uppercase tracking-wide font-bold">Proyección final del mes</div>
-              <div className="text-slate-400 text-xs">Solo base, sin extras</div>
+              <div className="text-slate-400 text-xs">{daysLeft} días restantes · hasta el 28 {MS[period.em]}</div>
             </div>
             <div className="text-right">
               <div className="text-lg font-black text-slate-300">{fmt(projected)}</div>
