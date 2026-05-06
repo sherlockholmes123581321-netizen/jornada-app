@@ -387,7 +387,11 @@ function exportPDF(entries, settings, period) {
         <td>${fmtD(e.date)}</td>
         <td>${DAYS[getDow(e.date)]}</td>
         <td>${getDayLabel(e)}</td>
-        <td class="cat-cell">${cat ? `<span style="font-size:12px">${cat.icon}</span> ${cat.label.length>14?cat.label.substring(0,13)+'…':cat.label}` : '–'}</td>
+        <td class="cat-cell">${(()=>{
+          if(!cat) return '–';
+          const abbrev = lbl => lbl.length<=12 ? lbl : lbl.split(' ').map(w=>w.substring(0,3)+'.').join(' ');
+          return `<span style="font-size:12px">${cat.icon}</span> ${abbrev(cat.label)}`;
+        })()}</td>
         <td>${e.hoursWorked || 0}h</td>
         <td>${(e.km || 0) > 0 ? e.km + ' km' : '–'}</td>
         <td>${e.location || '–'}</td>
