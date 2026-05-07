@@ -317,8 +317,8 @@ function calcPeriodStats(entries,s,period){
   const today=new Date();today.setHours(23,59,59,0);
   const end=cur&&today<fullEnd?today:fullEnd;
   if(end<start)return{totalDays:0,currentDays:0,autoDays:0,regWeekdays:0,regWeekends:0,base:0,weekendPay:0,otPay:0,extrasTotal:0,net:0,gross:null,otHours:0,weekendHours:0,kmTotal:0,kmPay:0,snCount:0,snPay:0,anCount:0,anPay:0,hotelTotal:0,mealsTotal:0,gratTotal:0};
-  const totalDays=Math.round((fullEnd-start)/86400000)+1;
-  const currentDays=Math.round((end-start)/86400000)+1;
+  const totalDays=Math.floor((fullEnd-start)/86400000)+1;
+  const currentDays=Math.floor((end-start)/86400000)+1;
   const entryMap={};entries.forEach(e=>entryMap[e.date]=e);
   let base=0,weekendPay=0,otPay=0,autoDays=0,regWeekdays=0,regWeekends=0,otHours=0,weekendHours=0,festivoCount=0,bajaEcCount=0,bajaEcPay=0,accidenteCount=0,accidentePay=0;
   let kmPay=0,kmTotal=0,snPay=0,snCount=0,anPay=0,anCount=0,hotelTotal=0,mealsTotal=0,gratTotal=0;
@@ -1398,8 +1398,12 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
   const nominaDiff=nomina>0?nomina-st.net:null;
 
   // Projection to end of month
+  // daysLeft (display) = calendar days remaining excluding today
+  // daysProjectable (math) = days that haven't yet earned (includes today if unregistered)
   const daysLeft=st.totalDays-st.currentDays;
-  const projected=st.net+(daysLeft*settings.dailyRate);
+  const daysContributed=st.regWeekdays+st.regWeekends+st.autoDays+st.festivoCount+st.bajaEcCount+st.accidenteCount;
+  const daysProjectable=Math.max(0,st.totalDays-daysContributed);
+  const projected=st.net+(daysProjectable*settings.dailyRate);
 
   // Weekly summary - enumerate all days in period and group by week
   const getWeekStart=ds=>{const[y,m,d]=ds.split('-').map(Number);const dt=new Date(y,m-1,d);const dow=dt.getDay();const monday=new Date(dt);monday.setDate(dt.getDate()-(dow===0?6:dow-1));return localDs(monday);};
