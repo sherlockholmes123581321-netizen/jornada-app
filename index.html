@@ -1689,15 +1689,6 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,onQuickAdd,vi
       </button>
     </div>
 
-    {/* Festivos/Bajas */}
-    {(st.festivoCount>0||st.bajaEcCount>0||st.accidenteCount>0)&&(
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {st.festivoCount>0&&<div className="g rounded-xl px-3 py-2 flex items-center gap-2"><span>🎉</span><div><div className="text-xs font-bold text-green-300">{st.festivoCount} festivo{st.festivoCount>1?'s':''}</div><div className="text-[10px] t3">incluido en base</div></div></div>}
-        {st.bajaEcCount>0&&<div className="g rounded-xl px-3 py-2 flex items-center gap-2"><span>🏥</span><div><div className="text-xs font-bold text-yellow-300">{st.bajaEcCount} día{st.bajaEcCount>1?'s':''} baja EC</div><div className="text-[10px] t3">{fmt(st.bajaEcPay)} (incluido)</div></div></div>}
-        {st.accidenteCount>0&&<div className="g rounded-xl px-3 py-2 flex items-center gap-2"><span>⚠️</span><div><div className="text-xs font-bold text-orange-300">{st.accidenteCount} día{st.accidenteCount>1?'s':''} acc.laboral</div><div className="text-[10px] t3">{fmt(st.accidentePay)} (incluido)</div></div></div>}
-      </div>
-    )}
-
     {/* Nomina comparison */}
     {(()=>{
       const saved=nomina>0;
