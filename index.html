@@ -1376,7 +1376,7 @@ function EntryCard({entry,settings,onEdit,onDelete,onDuplicate}){
 }
 
 // ── RESUMEN MES ───────────────────────────────────────────────
-function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,setViewPeriod,daysSince,onDuplicate,nominaValues,saveNominaValue}){
+function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,onQuickAdd,viewPeriod,setViewPeriod,daysSince,onDuplicate,nominaValues,saveNominaValue}){
   const cp=currentPeriod();
   const period=viewPeriod||cp;
   const pk=periodKey(period);
@@ -1445,6 +1445,10 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="3" width="10" height="9" rx="1"/><line x1="5" y1="6" x2="9" y2="6"/><line x1="5" y1="8.5" x2="9" y2="8.5"/></svg>
             Varios
           </button>
+          {(()=>{const today=localDs(new Date());const todayReg=pe.find(e=>e.date===today);if(isCurrent(period)&&!todayReg)return(<button onClick={onQuickAdd} className="rounded-xl px-3 py-2 text-xs font-bold t1 flex items-center gap-1.5 active:scale-95 transition-transform" style={{background:'linear-gradient(135deg,#10b981,#059669)',boxShadow:'0 0 12px rgba(16,185,129,0.3)'}}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 7 6 11 12 3"/></svg>
+            Hoy
+          </button>);return null;})()}
           <button onClick={onNew} className="rounded-xl px-3 py-2 text-xs font-bold t1 flex items-center gap-1.5 active:scale-95 transition-transform" style={{background:'linear-gradient(135deg,#2563eb,#1d4ed8)'}}>
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="7" y1="1" x2="7" y2="13"/><line x1="1" y1="7" x2="13" y2="7"/></svg>
             Añadir
@@ -1478,7 +1482,7 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
           <div className="space-y-2.5">
             <div>
               <div className="flex justify-between text-xs mb-1.5">
-                <span className="text-blue-400 font-semibold">Base · {st.regWeekdays+st.autoDays} días</span>
+                <span className="text-blue-400 font-semibold">Base · {st.regWeekdays+st.autoDays+st.festivoCount+st.bajaEcCount+st.accidenteCount} días</span>
                 <span className="text-blue-300 font-bold">{fmt(st.base)}</span>
               </div>
               <MiniBar value={st.base} max={st.net} color="bg-gradient-to-r from-blue-600 to-blue-400" height="h-2"/>
@@ -1565,9 +1569,9 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,viewPeriod,se
     {/* Festivos/Bajas */}
     {(st.festivoCount>0||st.bajaEcCount>0||st.accidenteCount>0)&&(
       <div className="flex gap-2 mb-4 flex-wrap">
-        {st.festivoCount>0&&<div className="g rounded-xl px-3 py-2 flex items-center gap-2"><span>🎉</span><div><div className="text-xs font-bold text-green-300">{st.festivoCount} festivo{st.festivoCount>1?'s':''}</div><div className="text-[10px] t3">{fmt(st.festivoCount*settings.dailyRate)}</div></div></div>}
-        {st.bajaEcCount>0&&<div className="g rounded-xl px-3 py-2 flex items-center gap-2"><span>🏥</span><div><div className="text-xs font-bold text-yellow-300">{st.bajaEcCount} día{st.bajaEcCount>1?'s':''} baja EC</div><div className="text-[10px] t3">{fmt(st.bajaEcPay)} cobrado</div></div></div>}
-        {st.accidenteCount>0&&<div className="g rounded-xl px-3 py-2 flex items-center gap-2"><span>⚠️</span><div><div className="text-xs font-bold text-orange-300">{st.accidenteCount} día{st.accidenteCount>1?'s':''} acc.laboral</div><div className="text-[10px] t3">{fmt(st.accidentePay)}</div></div></div>}
+        {st.festivoCount>0&&<div className="g rounded-xl px-3 py-2 flex items-center gap-2"><span>🎉</span><div><div className="text-xs font-bold text-green-300">{st.festivoCount} festivo{st.festivoCount>1?'s':''}</div><div className="text-[10px] t3">incluido en base</div></div></div>}
+        {st.bajaEcCount>0&&<div className="g rounded-xl px-3 py-2 flex items-center gap-2"><span>🏥</span><div><div className="text-xs font-bold text-yellow-300">{st.bajaEcCount} día{st.bajaEcCount>1?'s':''} baja EC</div><div className="text-[10px] t3">{fmt(st.bajaEcPay)} (incluido)</div></div></div>}
+        {st.accidenteCount>0&&<div className="g rounded-xl px-3 py-2 flex items-center gap-2"><span>⚠️</span><div><div className="text-xs font-bold text-orange-300">{st.accidenteCount} día{st.accidenteCount>1?'s':''} acc.laboral</div><div className="text-[10px] t3">{fmt(st.accidentePay)} (incluido)</div></div></div>}
       </div>
     )}
 
@@ -2112,6 +2116,26 @@ function App(){
     handleEdit({...entry,id:null,date:nextDay,createdAt:null,editHistory:[],_isDuplicate:true});
   };
   const handleNew=()=>{setEditing(null);setSubview('nueva');setView('mes');};
+  const handleQuickAdd=()=>{
+    const today=localDs(new Date());
+    if(entries.find(e=>e.date===today))return;
+    const sorted=[...entries].filter(e=>e.dayType==='normal'||!e.dayType).sort((a,b)=>b.date.localeCompare(a.date));
+    const last=sorted[0];
+    const ne={
+      id:'e_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+      date:today,
+      dayType:'normal',
+      hoursWorked:8,
+      km:0,spainNight:0,abroadNight:0,hotel:0,meals:0,gratification:0,gratificationNote:'',
+      location:last?last.location||'':'',
+      notes:'',
+      category:last?last.category||'obra':'obra',
+      customCategory:last?last.customCategory||'':'',
+      createdAt:new Date().toISOString(),
+      editHistory:[]
+    };
+    handleSave(ne);
+  };
   const handleBulk=()=>{setSubview('bulk');setView('mes');};
   const handleCancel=()=>{setEditing(null);setSubview('mes');};
 
@@ -2130,7 +2154,7 @@ function App(){
 
   return(<div style={{height:'100%',overflow:'hidden',display:'flex',flexDirection:'column',position:'relative',zIndex:1}}>
     <div style={{flex:1,overflowY:'auto',maxWidth:480,margin:'0 auto',width:'100%',paddingBottom:showNav?90:16,WebkitOverflowScrolling:'touch'}}>
-      {view==='mes'&&subview==='mes'&&<ResumenMes entries={entries} settings={settings} onEdit={handleEdit} onDelete={handleDelete} onNew={handleNew} onBulk={handleBulk} viewPeriod={viewPeriod} setViewPeriod={setViewPeriod} daysSince={daysSince} onDuplicate={handleDuplicate} nominaValues={nominaValues} saveNominaValue={saveNominaValue}/>}
+      {view==='mes'&&subview==='mes'&&<ResumenMes entries={entries} settings={settings} onEdit={handleEdit} onDelete={handleDelete} onNew={handleNew} onBulk={handleBulk} onQuickAdd={handleQuickAdd} viewPeriod={viewPeriod} setViewPeriod={setViewPeriod} daysSince={daysSince} onDuplicate={handleDuplicate} nominaValues={nominaValues} saveNominaValue={saveNominaValue}/>}
       {view==='mes'&&subview==='nueva'&&<EntryForm onSave={handleSave} onCancel={handleCancel} settings={settings} editing={editing} lastDate={lastDate}/>}
       {view==='mes'&&subview==='bulk'&&<BulkForm onSave={handleBulkSave} onCancel={handleCancel} settings={settings} lastDate={lastDate}/>}
       {view==='historial'&&<Historial entries={entries} settings={settings} onEdit={handleEdit} onDelete={handleDelete} periodNotes={periodNotes} savePeriodNote={savePeriodNotes} onDuplicate={handleDuplicate}/>}
