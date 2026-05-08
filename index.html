@@ -541,6 +541,7 @@ function exportPDF(entries, settings, period) {
     const nv = JSON.parse(localStorage.getItem('jornada-nomina-values') || '{}');
     nominaValue = nv[periodKey(period)] || '';
   } catch(e) {}
+  const employerName = settings.employerName || '';
   const pe = [...entries.filter(e => periodKey(getPayPeriod(e.date)) === periodKey(period))]
     .sort((a, b) => a.date.localeCompare(b.date));
   const st = calcPeriodStats(pe, settings, period);
@@ -671,6 +672,8 @@ function exportPDF(entries, settings, period) {
     <h1>Registro de Jornada Laboral</h1>
     <div class="period">${periodLabel(period)}</div>
     <div class="generated">Generado el ${new Date().toLocaleDateString('es-ES', {day:'2-digit',month:'long',year:'numeric'})}</div>
+    ${settings.workerName?`<div style="font-size:13px;font-weight:700;color:#0f172a;margin-top:6px">${settings.workerName}</div>`:''}
+    ${employerName?`<div style="font-size:11px;color:#64748b;font-weight:600">${employerName}</div>`:''}
   </div>
   <div style="text-align:right">
     <div style="font-size:22px;font-weight:800;color:#1d4ed8;">${fmtN(st.net)}</div>
@@ -817,10 +820,14 @@ function exportXLSX(entries, settings, period) {
   }
 
   // ── Sheet 2: Resumen ───────────────────────────────────────
+  const workerName = settings.workerName || '';
+  const employerName = settings.employerName || '';
   const resumenData = [
     ['RESUMEN DEL PERIODO'],
     [''],
     ['Periodo', `${periodLabel(period)}`],
+    ...(workerName ? [['Trabajador', workerName]] : []),
+    ...(employerName ? [['Empresa', employerName]] : []),
     ['Dias naturales', usedDays],
     ['Jornadas registradas', pe.length],
     [''],
@@ -1004,7 +1011,6 @@ function exportParte(entries, settings, period, workerName) {
     <div class="worker-block">
       <div class="label">Trabajador</div>
       <div class="name">${workerName || '___________________________'}</div>
-      ${employerName?`<div style="font-size:11px;color:#64748b;margin-top:3px;font-weight:600">${employerName}</div>`:''}
       ${employerName?`<div style="font-size:11px;color:#64748b;margin-top:3px;font-weight:600">${employerName}</div>`:''}
     </div>
   </div>
