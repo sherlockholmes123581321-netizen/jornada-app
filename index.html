@@ -1590,7 +1590,36 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,onQuickAdd,vi
   const daysLeft=st.totalDays-st.currentDays;
   const daysContributed=st.regWeekdays+st.regWeekends+st.autoDays+st.festivoCount+st.bajaEcCount+st.accidenteCount;
   const daysProjectable=Math.max(0,st.totalDays-daysContributed);
-  const projected=st.net+(daysProjectable*settings.dailyRate);
+
+  // Account for future pre-registered entries (days after today already in entries)
+  const todayDs=localDs(new Date());
+  const futureEntries=pe.filter(e=>e.date>todayDs);
+  const futureEarnings=futureEntries.reduce((sum,e)=>{
+    const h=e.hoursWorked||0;
+    const otH=Math.max(0,h-settings.workdayHours);
+    const wknd=isWeekend(e.date);
+    const dt=e.dayType||'normal';
+    let base=0;
+    if(dt==='festivo') base=settings.dailyRate;
+    else if(dt==='accidente_lab') base=settings.dailyRate*((settings.accidentePct||100)/100);
+    else if(dt==='baja_ec'){
+      // Use actual baja tramo calculation for future baja days
+      if(e.bajaStartDate){
+        const startD=new Date(e.bajaStartDate+'T12:00:00');
+        const thisD=new Date(e.date+'T12:00:00');
+        const dayN=Math.round((thisD-startD)/86400000)+1;
+        const pct=dayN<=3?0:dayN<=20?0.6:0.75;
+        base=settings.dailyRate*pct;
+      }
+    } else if(wknd) base=h*settings.overtimeRate;
+    else base=settings.dailyRate+otH*settings.overtimeRate;
+    const extras=(e.km||0)*settings.kmRate+
+      (e.spainNight?settings.spainNightRate:e.abroadNight?settings.abroadNightRate:0)+
+      (e.hotel||0)+(e.meals||0)+(e.gratification||0);
+    return sum+base+extras;
+  },0);
+  const unregisteredProjectable=Math.max(0,daysProjectable-futureEntries.length);
+  const projected=st.net+futureEarnings+(unregisteredProjectable*settings.dailyRate);
 
   // Weekly summary - enumerate all days in period and group by week
   const getWeekStart=ds=>{const[y,m,d]=ds.split('-').map(Number);const dt=new Date(y,m-1,d);const dow=dt.getDay();const monday=new Date(dt);monday.setDate(dt.getDate()-(dow===0?6:dow-1));return localDs(monday);};
