@@ -1195,7 +1195,7 @@ function EntryForm({onSave,onCancel,settings,editing,lastDate}){
     {dayType==='baja_ec'&&<div className="mt-2 glass rounded-xl p-3 space-y-2">
       <label className="text-xs t2 font-medium block">Fecha de inicio de la baja</label>
       <input type="date" value={bajaStartDate} onChange={e=>setBajaStart(e.target.value)}
-        className="w-full bg-white/4 border border-white/8 rounded-xl px-3 py-2.5 t1 text-sm focus:border-blue-500/70 focus:outline-none"/>
+        style={{width:"100%"}}/>  
       {bajaStartDate&&<BajaDayInfo date={date} bajaStart={bajaStartDate} dailyRate={settings.dailyRate}/>}
     </div>}
     {dayType==='accidente_lab'&&<div className="mt-2 glass rounded-xl p-3">
@@ -1250,6 +1250,14 @@ function EntryForm({onSave,onCancel,settings,editing,lastDate}){
       </div>
     </Card>
 
+    <SecTitle>Lugar de trabajo</SecTitle>
+    <Card>
+      <div className="flex items-center gap-2.5">
+        <span className="text-lg">📍</span>
+        <input placeholder="Obra, empresa, ciudad..." value={location} onChange={e=>setLoc(e.target.value)} style={{flex:1,background:'none',border:'none',outline:'none',color:'var(--t1)',fontSize:15,padding:'2px 4px'}}/>
+      </div>
+    </Card>
+
     <SecTitle>Categoría</SecTitle>
     <div className="flex gap-2 flex-wrap mb-1">
       {CATEGORIES.map(c=>(
@@ -1266,7 +1274,7 @@ function EntryForm({onSave,onCancel,settings,editing,lastDate}){
     {showCustom&&<div className="g rounded-xl px-3 py-2.5 mt-1 flex items-center gap-2">
       <span className="t3 text-sm">✏️</span>
       <input placeholder="Nombre de la categoría (ej: Reconocimiento médico)" value={customCat} onChange={e=>setCustomCat(e.target.value)}
-        className="flex-1 bg-transparent t1 text-sm focus:outline-none placeholder-slate-600 font-medium"/>
+        style={{flex:1,background:"none",border:"none",outline:"none",color:"var(--t1)",fontSize:14}}/>
     </div>}
 
     <SecTitle>Notas</SecTitle>
@@ -1300,6 +1308,7 @@ function BulkForm({onSave,onCancel,settings,lastDate}){
   const[to,setTo]=useState(defaultFrom);
   const[hours,setHours]=useState(settings.workdayHours);
   const[skipWeekends,setSkip]=useState(true);
+  const[dayType,setDayType]=useState('normal');
   const[km,setKm]=useState(0);
   const[spainNight,setSpainNight]=useState(false);
   const[abroadNight,setAbroadNight]=useState(false);
@@ -1315,7 +1324,8 @@ function BulkForm({onSave,onCancel,settings,lastDate}){
 
   const getDays=()=>{
     const days=[];const d=new Date(from+'T12:00:00');const end=new Date(to+'T12:00:00');
-    while(d<=end){const ds=localDs(d);const dow=d.getDay();if(!(skipWeekends&&(dow===0||dow===6)))days.push(ds);d.setDate(d.getDate()+1);}
+    const singleDay=from===to;
+    while(d<=end){const ds=localDs(d);const dow=d.getDay();if(!(skipWeekends&&!singleDay&&(dow===0||dow===6)))days.push(ds);d.setDate(d.getDate()+1);}
     return days;
   };
   const days=getDays();
@@ -1326,6 +1336,7 @@ function BulkForm({onSave,onCancel,settings,lastDate}){
     const now=new Date().toISOString();
     const newEntries=days.map(date=>({
       id:`${date}-${Date.now()}-${Math.random()}`,date,
+      dayType,
       hoursWorked:parseFloat(hours)||settings.workdayHours,
       km:parseFloat(km)||0,
       spainNight,abroadNight,
@@ -1353,8 +1364,9 @@ function BulkForm({onSave,onCancel,settings,lastDate}){
 
     <SecTitle>Rango de fechas</SecTitle>
     <Card className="space-y-3">
-      <div><label className="text-xs t2 block mb-1.5 font-medium">Desde</label><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="w-full bg-white/4 border border-white/8 rounded-xl px-3.5 py-3 t1 text-base focus:border-blue-500/70 focus:outline-none"/></div>
-      <div><label className="text-xs t2 block mb-1.5 font-medium">Hasta</label><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="w-full bg-white/4 border border-white/8 rounded-xl px-3.5 py-3 t1 text-base focus:border-blue-500/70 focus:outline-none"/></div>
+      <div><label style={{fontSize:12,color:"var(--t2)",display:"block",marginBottom:6,fontWeight:500}}>Desde</label><input type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{width:"100%",colorScheme:"dark"}}/></div>
+      <div><label className="text-xs t2 block mb-1.5 font-medium">Hasta</label><input type="date" value={to} onChange={e=>setTo(e.target.value)} style={{width:"100%",colorScheme:"dark"}}/>
+      </div>
       <Toggle label="Saltar fines de semana" sub="No registra sábados ni domingos" checked={skipWeekends} onChange={setSkip}/>
     </Card>
 
@@ -1363,16 +1375,37 @@ function BulkForm({onSave,onCancel,settings,lastDate}){
       <span className="text-xs t3 ml-2">{days[0]&&fmtDate(days[0])} – {days[days.length-1]&&fmtDate(days[days.length-1])}</span>
     </div>}
 
-    <SecTitle>Horas</SecTitle>
-    <Card><NumField label="Horas por día" sub={`base ${settings.workdayHours}h + extra × ${settings.overtimeRate.toFixed(2).replace('.',',')} €/h`} value={hours} onChange={setHours} step="0.5"/></Card>
+    <SecTitle>Tipo de día</SecTitle>
+    <div className="grid grid-cols-2 gap-2 mb-1">
+      {[['normal','💼','Laboral'],['festivo','🎉','Festivo'],['baja_ec','🏥','Baja enfermedad'],['accidente_lab','⚠️','Acc. laboral']].map(([val,icon,lbl])=>(
+        <button key={val} onClick={()=>setDayType(val)}
+          className={`rounded-xl py-2.5 px-2 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 ${dayType===val?'bg-blue-500/30 border border-blue-500/50 text-blue-300':'glass t2'}`}>
+          <span>{icon}</span>{lbl}
+        </button>
+      ))}
+    </div>
 
-    <SecTitle>Lugar de trabajo</SecTitle>
+    {dayType==='normal'&&<><SecTitle>Horas trabajadas</SecTitle>
     <Card>
-      <div className="flex items-center gap-2.5">
-        <span className="text-lg">📍</span>
-        <input placeholder="Obra, empresa, ciudad..." value={location} onChange={e=>setLoc(e.target.value)} style={{flex:1,background:'none',border:'none',outline:'none',color:'var(--t1)',fontSize:15,padding:'2px 4px'}}/>
-      </div>
+      <NumField label="Horas por día" sub={`base ${settings.workdayHours}h + extra × ${settings.overtimeRate.toFixed(2).replace('.',',')} €/h`} value={hours} onChange={setHours} step="0.5"/>
+      {(parseFloat(hours)||0)>0&&<div style={{marginTop:12,paddingTop:12,borderTop:'1px solid rgba(255,255,255,0.06)',display:'flex',flexDirection:'column',gap:6}}>
+        {(()=>{
+          const h=parseFloat(hours)||0;
+          const otH=Math.max(0,h-settings.workdayHours);
+          return(<>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:14}}>
+              <span style={{color:'var(--t2)'}}>Base jornada</span>
+              <span style={{color:'#93c5fd',fontWeight:700}}>{fmt(settings.dailyRate)}</span>
+            </div>
+            {otH>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:14}}>
+              <span style={{color:'var(--t2)'}}>{otH}h extra × {fmt(settings.overtimeRate)}</span>
+              <span style={{color:'#fcd34d',fontWeight:700}}>{fmt(otH*settings.overtimeRate)}</span>
+            </div>}
+          </>);
+        })()}
+      </div>}
     </Card>
+    </>}
 
     <SecTitle>Kilómetros</SecTitle>
     <Card><NumField label="Desplazamiento en obra/trabajo" sub={`${settings.kmRate.toFixed(3)} €/km`} value={km} onChange={setKm}/></Card>
@@ -1393,7 +1426,15 @@ function BulkForm({onSave,onCancel,settings,lastDate}){
     <Card className="space-y-3">
       <NumField label="Importe" sub="€" value={grat} onChange={setGrat} placeholder="0,00"/>
       {(parseFloat(grat)||0)>0&&<input placeholder="Concepto (obra, plus especial...)" value={gratNote} onChange={e=>setGratNote(e.target.value)}
-        className="w-full bg-white/4 border border-white/8 rounded-xl px-3 py-2.5 t1 text-sm focus:border-blue-500/70 focus:outline-none"/>}
+        style={{width:"100%"}}/>  }
+    </Card>
+
+        <SecTitle>Lugar de trabajo</SecTitle>
+    <Card>
+      <div className="flex items-center gap-2.5">
+        <span className="text-lg">📍</span>
+        <input placeholder="Obra, empresa, ciudad..." value={location} onChange={e=>setLoc(e.target.value)} style={{flex:1,background:'none',border:'none',outline:'none',color:'var(--t1)',fontSize:15,padding:'2px 4px'}}/>
+      </div>
     </Card>
 
     <SecTitle>Categoría</SecTitle>
@@ -1411,20 +1452,46 @@ function BulkForm({onSave,onCancel,settings,lastDate}){
     </div>
     {showBulkCustom&&<div className="g rounded-xl px-3 py-2.5 mt-1 flex items-center gap-2 mb-1">
       <input placeholder="Nombre de la categoría..." value={bulkCustomCat} onChange={e=>setBulkCustomCat(e.target.value)}
-        className="flex-1 bg-transparent t1 text-sm focus:outline-none placeholder-slate-600 font-medium"/>
+        style={{flex:1,background:"none",border:"none",outline:"none",color:"var(--t1)",fontSize:14}}/>
     </div>}
 
     <SecTitle>Notas</SecTitle>
     <Card><textarea placeholder="Notas para todas las jornadas..." value={notes} onChange={e=>setNotes(e.target.value)}
       style={{width:"100%",background:"transparent",border:"none",outline:"none",resize:"none",color:"var(--t1)",fontSize:14,lineHeight:1.6,padding:"2px 4px"}} rows={2}/></Card>
 
-    <div className="mt-5 rounded-2xl p-4 mb-5 glass">
-      <div className="text-[10px] t3 uppercase tracking-widest mb-1 font-bold">Resumen del registro</div>
-      <div className="text-3xl font-black t1 mb-1">{days.length} jornadas</div>
-      <div className="text-sm t2">{fmt(days.length*settings.dailyRate)} base estimada</div>
-      {(parseFloat(km)||0)>0&&<div className="text-xs text-green-400 mt-1">{fmt(days.length*(parseFloat(km)||0)*settings.kmRate)} en km</div>}
-      {(spainNight||abroadNight)&&<div className="text-xs text-purple-400 mt-0.5">{fmt(days.length*(spainNight?settings.spainNightRate:settings.abroadNightRate))} en dietas</div>}
-    </div>
+    {days.length>0&&(()=>{
+      const h=parseFloat(hours)||settings.workdayHours;
+      const otH=Math.max(0,h-settings.workdayHours);
+      const dayBase=settings.dailyRate;
+      const dayOt=otH*settings.overtimeRate;
+      const dayKm=(parseFloat(km)||0)*settings.kmRate;
+      const dayNight=spainNight?settings.spainNightRate:abroadNight?settings.abroadNightRate:0;
+      const dayHotel=parseFloat(hotel)||0;
+      const dayMeals=parseFloat(meals)||0;
+      const dayGrat=parseFloat(grat)||0;
+      const dayTotal=dayBase+dayOt+dayKm+dayNight+dayHotel+dayMeals+dayGrat;
+      const total=days.length*dayTotal;
+      const totalOt=days.length*dayOt;
+      const totalExtras=days.length*(dayKm+dayNight+dayHotel+dayMeals+dayGrat);
+      return(<div className="mt-5 rounded-2xl p-4 mb-5 g">
+        <div className="st" style={{margin:'0 0 12px 0'}}>Resumen del registro</div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:12}}>
+          <div>
+            <div style={{fontSize:13,color:'var(--t3)',fontWeight:600,marginBottom:2}}>{days.length} jornadas</div>
+            <div style={{fontSize:32,fontWeight:900,letterSpacing:'-0.04em',color:'var(--t1)',lineHeight:1}}>{fmt(total)}</div>
+          </div>
+          {otH>0&&<div style={{textAlign:'right'}}>
+            <div style={{fontSize:11,color:'var(--t3)',fontWeight:600}}>por día</div>
+            <div style={{fontSize:16,fontWeight:800,color:'var(--a)'}}>{fmt(dayTotal)}</div>
+          </div>}
+        </div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+          <span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:'var(--ad)',color:'var(--a)',fontWeight:700}}>{fmt(days.length*dayBase)} base</span>
+          {totalOt>0&&<span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:'rgba(245,158,11,0.12)',color:'#fbbf24',fontWeight:700}}>{fmt(totalOt)} extra ({otH}h×{days.length}d)</span>}
+          {totalExtras>0&&<span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:'rgba(16,185,129,0.12)',color:'#34d399',fontWeight:700}}>{fmt(totalExtras)} extras</span>}
+        </div>
+      </div>);
+    })()}
 
     <button onClick={handleSave} disabled={days.length===0}
       className={`w-full rounded-2xl py-4 font-bold text-lg transition-all active:scale-95 ${days.length===0?'bg-slate-800 t3':'text-white'}`}
