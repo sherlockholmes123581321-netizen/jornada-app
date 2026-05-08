@@ -1250,14 +1250,6 @@ function EntryForm({onSave,onCancel,settings,editing,lastDate}){
       </div>
     </Card>
 
-    <SecTitle>Lugar de trabajo</SecTitle>
-    <Card>
-      <div className="flex items-center gap-2.5">
-        <span className="text-lg">📍</span>
-        <input placeholder="Obra, empresa, ciudad..." value={location} onChange={e=>setLoc(e.target.value)} style={{flex:1,background:'none',border:'none',outline:'none',color:'var(--t1)',fontSize:15,padding:'2px 4px'}}/>
-      </div>
-    </Card>
-
     <SecTitle>Categoría</SecTitle>
     <div className="flex gap-2 flex-wrap mb-1">
       {CATEGORIES.map(c=>(
