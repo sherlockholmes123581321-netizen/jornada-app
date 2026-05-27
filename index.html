@@ -426,14 +426,14 @@ function CalendarHeatmap({entries,settings,period}){
   </div>);
 }
 
-function calcPeriodStats(entries,s,period){
+function calcPeriodStats(entries,s,period,includeAll=false){
   const cur=isCurrent(period);
   let start=new Date(period.sy,period.sm,_periodActualStartDay(period));
   if(s.startDate){const sd=new Date(s.startDate+'T12:00:00');if(sd>start)start=sd;}
   let fullEnd=new Date(period.ey,period.em,_periodActualEndDay(period),23,59,59);
   if(s.endDate){const ed=new Date(s.endDate+'T23:59:59');if(ed<fullEnd)fullEnd=ed;}
   const today=new Date();today.setHours(23,59,59,0);
-  const end=cur&&today<fullEnd?today:fullEnd;
+  const end=(cur&&today<fullEnd&&!includeAll)?today:fullEnd;
   if(end<start)return{totalDays:0,currentDays:0,autoDays:0,regWeekdays:0,regWeekends:0,base:0,weekendPay:0,otPay:0,extrasTotal:0,net:0,gross:null,otHours:0,weekendHours:0,kmTotal:0,kmPay:0,snCount:0,snPay:0,anCount:0,anPay:0,hotelTotal:0,mealsTotal:0,gratTotal:0};
   const totalDays=Math.floor((fullEnd-start)/86400000)+1;
   const currentDays=Math.floor((end-start)/86400000)+1;
@@ -447,7 +447,7 @@ function calcPeriodStats(entries,s,period){
     const entry=entryMap[ds];
     if(!entry){
       // Don't count today automatically in current period - only count if registered
-      const isToday=cur&&ds===localDs(new Date());
+      const isToday=!includeAll&&cur&&ds===localDs(new Date());
       if(!isToday&&(s.autoWeekends!==false)){base+=s.dailyRate;autoDays++;}
     }
     else{
@@ -544,7 +544,7 @@ function exportPDF(entries, settings, period) {
   const employerName = settings.employerName || '';
   const pe = [...entries.filter(e => periodKey(getPayPeriod(e.date)) === periodKey(period))]
     .sort((a, b) => a.date.localeCompare(b.date));
-  const st = calcPeriodStats(pe, settings, period);
+  const st = calcPeriodStats(pe, settings, period, true);
   const isCur = isCurrent(period);
   const usedDays = isCur ? st.currentDays : st.totalDays;
   const fmtN = n => n === null || n === undefined || isNaN(n) ? '–' : n.toFixed(2).replace('.', ',') + ' €';
@@ -759,7 +759,7 @@ function exportXLSX(entries, settings, period) {
   if(typeof XLSX === 'undefined') { alert('Error cargando la librería Excel. Comprueba tu conexión.'); return; }
   const pe = [...entries.filter(e => periodKey(getPayPeriod(e.date)) === periodKey(period))]
     .sort((a,b) => a.date.localeCompare(b.date));
-  const st = calcPeriodStats(pe, settings, period);
+  const st = calcPeriodStats(pe, settings, period, true);
   const isCur = isCurrent(period);
   const usedDays = isCur ? st.currentDays : st.totalDays;
   const DAYS_XLS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
