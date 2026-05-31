@@ -1614,7 +1614,7 @@ function ResumenMes({entries,settings,onEdit,onDelete,onNew,onBulk,onQuickAdd,vi
         const startD=new Date(e.bajaStartDate+'T12:00:00');
         const thisD=new Date(e.date+'T12:00:00');
         const dayN=Math.round((thisD-startD)/86400000)+1;
-        const pct=dayN<=3?(s.bajaDay1to3||0)/100:dayN<=20?(s.bajaDay4to20??60)/100:(s.bajaDay21plus??75)/100;
+        const pct=dayN<=3?(settings.bajaDay1to3||0)/100:dayN<=20?(settings.bajaDay4to20??60)/100:(settings.bajaDay21plus??75)/100;
         base=settings.dailyRate*pct;
       }
     } else if(wknd) base=h*settings.overtimeRate;
