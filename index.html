@@ -501,7 +501,8 @@ function exportCSV(entries,settings,period){
   [...pe].sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
     const wknd=isWeekend(e.date);
     const h=e.hoursWorked||0,otH=!wknd?Math.max(0,h-settings.workdayHours):0;
-    const dayPay=wknd?h*settings.overtimeRate:settings.dailyRate+otH*settings.overtimeRate;
+    const _bajaPct=dt==='baja_ec'?(()=>{const bs=entry.bajaStartDate||entry.date;const dn=Math.max(1,Math.floor((new Date(entry.date+'T12:00:00')-new Date(bs+'T12:00:00'))/86400000)+1);return dn<=3?(settings.bajaDay1to3??0)/100:dn<=20?(settings.bajaDay4to20??60)/100:(settings.bajaDay21plus??75)/100;})():null;
+  const dayPay=dt==='baja_ec'?settings.dailyRate*(_bajaPct||0):dt==='accidente_lab'?settings.dailyRate*((settings.accidentePct||100)/100):dt==='festivo'?settings.dailyRate:wknd?h*(settings.overtimeSpecialRate||settings.overtimeRate):settings.dailyRate+(settings.dailyBonus||0)+otH*settings.overtimeRate;
     const ex=calcDayExtras(e,settings);
     const cat=e.customCategory?{label:e.customCategory}:CATEGORIES.find(c=>c.id===e.category);
     const catLabel=stripAccents(cat?cat.label:'');
@@ -1509,14 +1510,15 @@ function BulkForm({onSave,onCancel,settings,lastDate}){
 function EntryCard({entry,settings,onEdit,onDelete,onDuplicate}){
   const[conf,setConf]=useState(false);
   const wknd=isWeekend(entry.date),h=entry.hoursWorked||0;
+  const dt=entry.dayType||'normal';
   const otH=!wknd?Math.max(0,h-settings.workdayHours):0;
-  const dayPay=wknd?h*settings.overtimeRate:settings.dailyRate+otH*settings.overtimeRate;
+  const _bajaPct=dt==='baja_ec'?(()=>{const bs=entry.bajaStartDate||entry.date;const dn=Math.max(1,Math.floor((new Date(entry.date+'T12:00:00')-new Date(bs+'T12:00:00'))/86400000)+1);return dn<=3?(settings.bajaDay1to3??0)/100:dn<=20?(settings.bajaDay4to20??60)/100:(settings.bajaDay21plus??75)/100;})():null;
+  const dayPay=dt==='baja_ec'?settings.dailyRate*(_bajaPct||0):dt==='accidente_lab'?settings.dailyRate*((settings.accidentePct||100)/100):dt==='festivo'?settings.dailyRate:wknd?h*(settings.overtimeSpecialRate||settings.overtimeRate):settings.dailyRate+(settings.dailyBonus||0)+otH*settings.overtimeRate;
   const ex=calcDayExtras(entry,settings);
   const total=dayPay+ex.total;
-  const dt=entry.dayType||'normal';
-  const isAbsence=dt==='festivo'||dt==='baja_con'||dt==='baja_sin';
+  const isAbsence=dt==='festivo'||dt==='baja_ec'||dt==='accidente_lab'||dt==='baja_con'||dt==='baja_sin';
   const absenceColor=dt==='festivo'?'border-green-500/20 bg-green-500/5':dt==='baja_ec'?'border-yellow-500/20 bg-yellow-500/5':'border-orange-500/20 bg-orange-500/5';
-  return(<div className={`rounded-2xl p-3.5 mb-2 fade-in transition-all ${isAbsence?`border ${absenceColor}`:wknd?'border border-orange-500/20 bg-orange-500/5':'glass'}`}>
+  return(<div className={`rounded-2xl p-3.5 mb-2 fade-in transition-all ${isAbsence?`border ${absenceColor}`:wknd?'border border-orange-500/20 bg-orange-500/5':'g'}`}>
     <div className="flex justify-between items-start gap-2">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
