@@ -2379,6 +2379,23 @@ function Ajustes({settings,onSave,onGetEntries,onRestoreEntries}){
 // ── APP ───────────────────────────────────────────────────────
 
 
+class ErrorBoundary extends React.Component{
+  constructor(props){super(props);this.state={error:null};}
+  static getDerivedStateFromError(e){return{error:e};}
+  componentDidCatch(e,info){console.error('APP CRASH:',e,info);}
+  render(){
+    if(this.state.error)return(
+      <div style={{padding:24,color:'#f87171',fontFamily:'monospace',fontSize:13,background:'#0f172a',minHeight:'100vh',overflowWrap:'break-word'}}>
+        <div style={{fontWeight:700,fontSize:16,marginBottom:12}}>⚠️ Error detectado</div>
+        <div style={{marginBottom:8,color:'#fbbf24'}}>{this.state.error.message}</div>
+        <pre style={{color:'#94a3b8',fontSize:11,whiteSpace:'pre-wrap'}}>{this.state.error.stack}</pre>
+        <button onClick={()=>this.setState({error:null})} style={{marginTop:16,padding:'8px 16px',background:'#6366f1',color:'white',border:'none',borderRadius:8,cursor:'pointer'}}>Reintentar</button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
 function App(){
   const[view,setView]=useState('mes');
   const[entries,setEntries]=useState([]);
@@ -2471,7 +2488,7 @@ function App(){
   </div>);
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+ReactDOM.createRoot(document.getElementById('root')).render(<ErrorBoundary><App/></ErrorBoundary>);
 
 
 </script>
