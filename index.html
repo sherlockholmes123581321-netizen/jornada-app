@@ -446,9 +446,8 @@ function calcPeriodStats(entries,s,period,includeAll=false){
     const dow=d.getDay(),wknd=dow===0||dow===6;
     const entry=entryMap[ds];
     if(!entry){
-      // Don't count today automatically in current period - only count if registered
-      const isToday=!includeAll&&cur&&ds===localDs(new Date());
-      if(!isToday&&(s.autoWeekends!==false)){base+=s.dailyRate;autoDays++;}
+      // Only weekends auto-count (including today - if you work a weekend you register it)
+      if(wknd&&(s.autoWeekends!==false)){base+=s.dailyRate;autoDays++;}
     }
     else{
       const h=entry.hoursWorked||0;
